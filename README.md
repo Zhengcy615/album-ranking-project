@@ -23,7 +23,7 @@ Compare album rankings with my personal CD collection
 ## 当前进度
 
 - [x] 创建 GitHub 仓库
-- [ ] 添加 RYM 榜单数据
+- [x] 添加 RYM 榜单数据
 - [ ] 添加 AOTY 榜单数据
 - [ ] 添加个人收藏状态
 - [ ] 检查重复数据
