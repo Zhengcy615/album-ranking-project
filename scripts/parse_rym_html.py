@@ -1,10 +1,18 @@
+import csv
 import re
 from pathlib import Path
 
 from bs4 import BeautifulSoup, Tag
 
 
-HTML_PATH = Path("data/rym_chart.html")
+HTML_PATHS = [
+    Path("data/rym_chart.html"),
+    Path("data/rym_chart_page_2.html"),
+    Path("data/rym_chart_page_3.html"),
+]
+
+OUTPUT_PATH = Path("data/rym_top100.csv")
+TOP_N = 100
 
 
 def get_link_text(item: Tag, href_part: str) -> str:
@@ -22,6 +30,7 @@ def get_date_text(item: Tag) -> str:
 
     for selector in selectors:
         element = item.select_one(selector)
+
         if element:
             text = element.get_text(" ", strip=True)
             return re.sub(r"\s+Album$", "", text)
@@ -47,34 +56,74 @@ def get_album_title(item: Tag) -> str:
     return ""
 
 
-def main() -> None:
-    if not HTML_PATH.exists():
-        raise FileNotFoundError(f"找不到文件：{HTML_PATH}")
+def extract_items(html_path: Path) -> list[Tag]:
+    """从一个 HTML 文件中读取所有榜单条目。"""
+    if not html_path.exists():
+        raise FileNotFoundError(f"找不到文件：{html_path}")
 
-    html = HTML_PATH.read_text(
+    html = html_path.read_text(
         encoding="utf-8",
         errors="ignore",
     )
 
     soup = BeautifulSoup(html, "html.parser")
 
-    items = soup.select(".page_charts_section_charts_item")
+    return soup.select(".page_charts_section_charts_item")
 
-    print(f"找到 {len(items)} 个榜单条目")
-    print("-" * 60)
 
-    for rank, item in enumerate(items[:10], start=1):
+def main() -> None:
+    all_items = []
+
+    for html_path in HTML_PATHS:
+        items = extract_items(html_path)
+
+        print(f"{html_path.name}：找到 {len(items)} 个榜单条目")
+
+        all_items.extend(items)
+
+    print(f"三页合计找到 {len(all_items)} 个榜单条目")
+
+    rows = []
+
+    for rank, item in enumerate(all_items[:TOP_N], start=1):
         artist = get_link_text(item, "/artist/")
         album = get_album_title(item)
         date_text = get_date_text(item)
         year = extract_year(date_text)
 
-        print(f"排名：{rank}")
-        print(f"艺人：{artist}")
-        print(f"专辑：{album}")
-        print(f"年份：{year}")
-        print(f"完整日期：{date_text}")
-        print("-" * 60)
+        rows.append(
+            {
+                "rank": rank,
+                "artist": artist,
+                "album": album,
+                "year": year,
+                "release_date": date_text,
+            }
+        )
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    with OUTPUT_PATH.open(
+        "w",
+        encoding="utf-8-sig",
+        newline="",
+    ) as csv_file:
+        writer = csv.DictWriter(
+            csv_file,
+            fieldnames=[
+                "rank",
+                "artist",
+                "album",
+                "year",
+                "release_date",
+            ],
+        )
+
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"成功保存 {len(rows)} 条数据")
+    print(f"文件位置：{OUTPUT_PATH.resolve()}")
 
 
 if __name__ == "__main__":
