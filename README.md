@@ -24,7 +24,6 @@ Compare album rankings with my personal CD collection
 
 - [x] 创建 GitHub 仓库
 - [x] 添加 RYM 榜单数据
-- [ ] 添加 AOTY 榜单数据
-- [ ] 添加个人收藏状态
+- [x] 添加个人收藏状态
 - [ ] 检查重复数据
 - [ ] 生成购买清单
