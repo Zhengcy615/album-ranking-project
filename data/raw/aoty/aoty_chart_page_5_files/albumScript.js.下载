@@ -1,0 +1,406 @@
+$(document).ready(function(){
+//Get the input data using the post method when Push into mysql is clicked .. we pull it using the id fields of ID, Name and Email respectively...
+	
+$(function() 
+{
+$(".addSpinList").click(function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	
+	//Get values of the input fields and store it into the variables.
+		//use the $.post() method to call insert.php file.. this is the ajax request
+		$.post('/scripts/addSpinList.php', {albumID: id},
+		function(data){
+		$("#addSpinList").hide();
+		$("#removeSpinList").show(); //Fade in the data given by the insert.php file
+		});
+		return false;
+	});
+});
+
+$(function() 
+{
+$(".removeSpinList").click(function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	
+	//Get values of the input fields and store it into the variables.
+		//use the $.post() method to call insert.php file.. this is the ajax request
+		$.post('/scripts/removeSpinList.php', {albumID: id},
+		function(data){
+		$("#removeSpinList").hide();
+		$("#addSpinList").show(); //Fade in the data given by the insert.php file
+		});
+		return false;
+	});
+});
+$(function() 
+{
+	$(".insertRating").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var value=$("#value").val();
+		
+		if(!isNaN(value)){
+			if (value<=100 && value>=0 && value != '') {
+			$("#rate").hide();
+			$("#rating").show();
+			//use the $.post() method to call insert.php file.. this is the ajax request
+			$.post('/scripts/insertRatingLarge.php', {albumID: id, value: value},
+			function(data){
+			$("#ratingBlock").html(data);
+			$("#ratingBlock").hide();
+			$("#ratingBlock").show(); 
+			$("#notificationArea").hide(); 
+			});
+			return false;
+			} else {
+			$("#notificationArea").show();
+			document.getElementById("notificationMessage").innerHTML = "Number must be between 0-100";
+			document.getElementById("notificationArea").classList.add('red');
+			return false;
+			}
+		} else {
+			$("#notificationArea").show(); 
+			document.getElementById("notificationMessage").innerHTML = "Please enter a number";
+			document.getElementById("notificationArea").classList.add('red');
+			return false;
+		}
+	});
+});
+$(function() 
+{
+	$(".insertReview").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var text=$.trim($("#text").val());
+		if (text != ''  && text != 'Add a Review') {
+			if (text.length >= 3) {
+				document.getElementById("notificationMessage").innerHTML = "";
+				$("#post").hide();
+				$("#posting").show();
+				//use the $.post() method to call insert.php file.. this is the ajax request
+				$.post('/scripts/insertReview.php', {albumID: id, text: text},
+				function(data){
+				$("#reviewBlock").html(data);
+				$("#reviewBlock").hide();
+				$("#reviewBlock").show(); 
+				$("#postReviewButton").hide();	
+				$("#notificationArea").hide(); 
+				});
+				return false;
+			} else {
+				$("#notificationArea").show(); 
+				document.getElementById("notificationMessage").innerHTML = "You did not enter enough text";
+				document.getElementById("notificationArea").classList.add('red');
+				return false;
+		}
+		} else {
+			$("#notificationArea").show(); 
+			document.getElementById("notificationMessage").innerHTML = "Please enter some text";
+			document.getElementById("notificationArea").classList.add('red');
+			return false;
+		}
+
+	});
+});
+$(function() 
+{
+	$(".editReview").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		$("#currentReviewBlock").hide();
+		$("#editReviewButton").show();
+			$.post('/scripts/editReview.php', {albumID: id},
+			function(data){
+				$("#editReviewBlock").html(data);
+				$("#editReviewBlock").hide();
+				$("#editReviewBlock").show(); 
+			});
+			return false;
+
+	});
+});
+$(function() 
+{
+	$(".cancelUpdate").click(function(){	
+		$("#currentReviewBlock").show();
+		$("#editReviewButton").show();
+		$("#deleteReviewButton").show();
+		$("#updateButtons").hide();
+		document.getElementById("editReviewBlock").innerHTML = "";
+		return false;
+
+	});
+});
+$(function() 
+{
+	$(".updateReview").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var text=$("#updateText").val();
+		if (text != ''  && text != 'Add a Review') {
+			if (text.length > 3) {
+				$("#update").hide();
+				$("#updating").show();
+				//use the $.post() method to call insert.php file.. this is the ajax request
+				$.post('/scripts/updateReview.php', {albumID: id, text: text},
+				function(data){
+				$("#updateButtons").hide();
+				$("#editReviewBlock").hide();
+				$("#reviewBlock").html(data);
+				$("#reviewBlock").hide();
+				$("#reviewBlock").show(); 
+				});
+				return false;
+			} else {
+				document.getElementById("editReviewMessage").innerHTML = "You did not enter enough text";
+				return false;
+		}
+		} else {
+			document.getElementById("editReviewMessage").innerHTML = "Please enter some text";
+			return false;
+		}
+
+	});
+});
+// Show Tags Popup
+$('.tag').on("click", ".moreTags", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var albumID=element.attr("data-album-id");
+	container.html('');
+	$.post('/scripts/moreTags.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+$(function() {
+	$(".showAddTag").click(function(){	
+		$("#addTag").show();	
+		return false;
+	});
+});
+$(function() 
+{
+	$(".addAlbumTag").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var tag=$("#tag").val();
+		if (tag != '') {
+			if (tag.length > 1 && tag.length <= 35) {
+				$("#add").hide();
+				$("#adding").show();
+				//use the $.post() method to call insert.php file.. this is the ajax request
+				$.post('/scripts/addAlbumTag.php', {albumID: id, tag: tag},
+				function(data){
+					//document.getElementById("tagMessage").style.color = "green";
+					//document.getElementById("tagMessage").innerHTML = '"' + tag + '" entered as tag';
+					$("#adding").hide();
+					$("#add").show();
+					document.getElementById("tag").value = "";
+					$("#tagMessage").html(data);
+					$("#tagMessage").hide();
+					$("#tagMessage").show(); 
+				});
+				return false;
+			} else {
+				document.getElementById("tagMessage").style.color = "red";
+				document.getElementById("tagMessage").innerHTML = "Tag must be more than 1 character and no more than 35";
+				return false;
+		}
+		} else {
+			document.getElementById("tagMessage").style.color = "red";
+			document.getElementById("tagMessage").innerHTML = "You didn't enter any text";
+			return false;
+		}
+
+	});
+});
+$('body').on("click", ".deleteAlbumTag", function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		$("#delete"+id).hide();	
+		$("#deleteCheck"+id).show();
+		return false;
+	});
+$('body').on("click", ".deleteAlbumTagNo", function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		$("#deleteCheck"+id).hide();	
+		$("#delete"+id).show();	
+		return false;
+	});
+$('body').on("click", ".deleteAlbumTagYes", function(){
+		var element = $(this);
+		var id=element.attr("id");
+		var albumID = element.attr("albumID");
+		$.post('/scripts/deleteAlbumTag.php', {id: id, albumID: albumID},
+			function(data){
+				$("#tag"+id).hide();
+				$("#deleteCheck"+id).hide();
+			});
+			return false;		
+	});
+
+$(function() 
+{
+$(".insertRatingList").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var value=$("#value"+id).val();		
+		if(!isNaN(value)){
+			if (value<=100 && value>=0 && value != '') {
+			$("#rate"+id).hide();
+			$("#rating"+id).show();
+			//use the $.post() method to call insert.php file.. this is the ajax request
+			$.post('/scripts/insertRating.php', {albumID: id, value: value},
+			function(data){
+			$("#ratingBlockList"+id).html(data);
+			$("#ratingBlockList"+id).hide();
+			$("#ratingBlockList"+id).show(); 
+			});
+			return false;
+			} else {
+			document.getElementById("ratingMessage"+id).innerHTML = "Number must be 0-100";
+			return false;
+			}
+		} else {
+			document.getElementById("ratingMessage"+id).innerHTML = "Please enter a number";
+			return false;
+		}
+	});
+});
+$(function() { 
+    $("#tag").autocomplete({
+        source: "/scripts/albumTagAutocomplete.php",
+        minLength: 3,
+        select: function(event, ui) {
+			var searchTerm = ui.item.value;
+        },
+ 
+        html: false, // optional (jquery.ui.autocomplete.html.js required)
+ 
+      // optional (if other layers overlap autocomplete list)
+        open: function(event, ui) {
+            $(".ui-autocomplete").css("z-index", 1000);
+			
+			
+
+        }
+    }); 
+});
+	// View More Critic Reviews
+	$("#criticReviewContainer").on("click", ".viewMoreCriticReviews", function(){	
+		$("#viewMore").hide();
+		$("#moreCricitReviews").show();
+		return false;
+	});	
+	// Critic review menu
+	$("#criticReviewContainer").on("click", ".criticReviewMenuToggle", function(){
+		var element = $(this);
+		var id=element.attr("data-review-id");
+		if ($(".active")[0] && document.getElementById("critic_review_"+id).classList.contains("active")) {
+			$(".active").removeClass("active");
+		} else if (document.getElementById("critic_review_"+id).classList.contains("active")) {
+			document.getElementById("critic_review_"+id).classList.remove("active");
+		} else {
+			$(".active").removeClass("active");
+			document.getElementById("critic_review_"+id).classList.add("active");
+		}
+		return false;
+	});	
+	// User review menu
+	$("#graybg").on("click", ".userReviewMenuToggle", function(){
+		var element = $(this);
+		var id=element.attr("data-review-id");
+		if ($(".active")[0] && document.getElementById("user_review_"+id).classList.contains("active")) {
+			$(".active").removeClass("active");
+		} else if (document.getElementById("user_review_"+id).classList.contains("active")) {
+			document.getElementById("user_review_"+id).classList.remove("active");
+		} else {
+			$(".active").removeClass("active");
+			document.getElementById("user_review_"+id).classList.add("active");
+		}
+		return false;
+	});	
+	$('body').click(function() {
+		$(".active").removeClass("active");
+	});
+	// Sort Critic Reviews
+	$("#criticReviewContainer").on("click", ".criticSort", function(){	
+		var element = $(this);
+		var sort=element.attr("sort");
+		var id=element.attr("albumID");
+		var year=element.attr("year");
+		var container = $("#criticReviewContainer");
+		$.post('/scripts/criticSort.php', {sort: sort, id: id, year: year},
+		function(data){
+			container.html(data);
+		});
+		return false;
+	});
+	// Show Replies
+	$("body").on("click", ".showReplies", function(){	
+		var element = $(this);
+		var id=element.attr("data-show-reply");
+		var albumID=element.attr("data-album-id");
+		$("#replyContainer_"+id).show(); 
+		$.post('/scripts/showAlbumCommentReplies.php', {id: id, albumID: albumID},
+			function(data){
+				$("#replyContainer_"+id).html(data);
+		});
+		return false ;
+	});
+	
+	$(".likeUserReview_login").click(function(){	
+		var element = $(this);
+		var id=element.attr("data-review-id");
+		document.getElementById("review_like_"+id).innerHTML = "<a href=\"/account/\">Login to Like</a>";
+		document.getElementById("review_like_"+id).style.fontSize = "14px";
+		return false;
+	});
+
+	// Follow User Menu
+	$("body").on("click", ".followMenu", function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var count=element.attr("data-count");
+		var container = $("#user_menu_"+count);
+		document.getElementById("user_menu_"+count).classList.remove("active");
+		$.post('/scripts/followMenu.php', {followID: id},
+			function(data){
+				container.html(data);
+			});
+			return false;
+	});
+	// Unfollow User Menu
+	$("body").on("click", ".unfollowMenu", function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		var count=element.attr("data-count");
+		var container = $("#user_menu_"+count);
+		document.getElementById("user_menu_"+count).classList.remove("active");
+		$.post('/scripts/unfollowMenu.php', {followID: id},
+			function(data){
+				container.html(data);
+			});
+			return false;
+	});	
+
+	// Add to List
+	$('body').on("click", ".addToListPop", function(){
+		var element = $(this);
+		var container = $(".overlay");
+		container.html('');
+		var albumID=element.attr("data-album-id");
+		$.post('/scripts/userLists/addToList.php', {albumID: albumID}, 
+		function(data){
+			container.html(data);
+		});
+		$(".overlay").addClass("show");
+		return false;
+	});
+});

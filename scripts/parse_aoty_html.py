@@ -1,166 +1,120 @@
 import csv
 import re
 from pathlib import Path
-
 from bs4 import BeautifulSoup, Tag
-
 
 HTML_PATHS = [
     Path("data/raw/aoty/aoty_chart.html"),
-    Path("data/raw/aoty/aoty_chart_page_2.html"),
-    Path("data/raw/aoty/aoty_chart_page_3.html"),
-    Path("data/raw/aoty/aoty_chart_page_4.html"),
+] + [
+    Path(f"data/raw/aoty/aoty_chart_page_{i}.html")
+    for i in range(2, 21)
 ]
 
-OUTPUT_PATH = Path("data/processed/aoty_top100.csv")
-TOP_N = 100
+OUTPUT_PATH = Path("data/processed/aoty_top500.csv")
 
 
-def get_text(item: Tag, selector: str) -> str:
-    """读取指定元素中的文字。"""
-    element = item.select_one(selector)
-
-    if element is None:
+def text(item: Tag, selector: str) -> str:
+    node = item.select_one(selector)
+    if node is None:
         return ""
-
-    return element.get_text(" ", strip=True)
-
-
-def extract_year(date_text: str) -> str:
-    """从完整日期中提取四位年份。"""
-    match = re.search(r"\b(?:19|20)\d{2}\b", date_text)
-
-    if match:
-        return match.group(0)
-
-    return ""
+    return node.get_text(" ", strip=True)
 
 
-def extract_rank(item: Tag, fallback_rank: int) -> int:
-    """读取网页中的实际排名；读取失败时使用顺序排名。"""
-    rank_text = get_text(item, ".albumListRank")
-    match = re.search(r"\d+", rank_text)
-
-    if match:
-        return int(match.group(0))
-
-    return fallback_rank
+def year_from(text_value: str) -> str:
+    m = re.search(r"\b(?:19|20)\d{2}\b", text_value or "")
+    return m.group(0) if m else ""
 
 
-def extract_artist_and_album(item: Tag) -> tuple[str, str]:
-    """
-    只读取专辑链接中的标题，
-    避免把 albumListRank 中的排名混入艺人名称。
-    """
-    title_link = item.select_one(
-        ".albumListTitle a[itemprop='url']"
-    )
+def clean_rank(value: str, fallback: int) -> str:
+    m = re.search(r"\d+", value or "")
+    return m.group(0) if m else str(fallback)
 
-    if title_link is None:
+
+def parse_title(item: Tag):
+    node = item.select_one(".albumListTitle a")
+    if node is None:
         return "", ""
 
-    full_title = title_link.get_text(" ", strip=True)
+    title = node.get_text(" ", strip=True)
 
-    if " - " in full_title:
-        artist, album = full_title.split(" - ", 1)
-
+    if " - " in title:
+        artist, album = title.split(" - ", 1)
         return artist.strip(), album.strip()
 
-    return "", full_title.strip()
+    return "", title.strip()
 
 
-def clean_ratings_count(text: str) -> str:
-    """从评分人数文字中只保留数字和逗号。"""
-    match = re.search(r"[\d,]+", text)
-
-    if match:
-        return match.group(0)
-
-    return ""
-
-
-def parse_item(
-    item: Tag,
-    fallback_rank: int,
-) -> dict[str, str] | None:
-    """解析一个 AOTY 专辑条目。"""
-    artist, album = extract_artist_and_album(item)
-
-    if not album:
-        return None
-
-    date_text = get_text(item, ".albumListDate")
-    user_score = get_text(item, ".scoreValue")
-    ratings_text = get_text(item, ".scoreText")
-    genres = get_text(item, ".albumListGenre")
-
-    return {
-        "rank": str(extract_rank(item, fallback_rank)),
-        "artist": artist,
-        "album": album,
-        "year": extract_year(date_text),
-        "release_date": date_text,
-        "user_score": user_score,
-        "ratings_count": clean_ratings_count(ratings_text),
-        "genres": genres,
-    }
-
-
-def read_items(html_path: Path) -> list[Tag]:
-    """读取一个 HTML 文件中的全部专辑条目。"""
-    if not html_path.exists():
-        raise FileNotFoundError(
-            f"找不到文件：{html_path.resolve()}"
-        )
-
-    html = html_path.read_text(
+def parse_page(path: Path, start_rank: int):
+    html = path.read_text(
         encoding="utf-8",
-        errors="ignore",
+        errors="ignore"
     )
 
-    soup = BeautifulSoup(
-        html,
-        "html.parser",
-    )
+    soup = BeautifulSoup(html, "html.parser")
 
-    return soup.select("div.albumListRow")
+    items = soup.select("div.albumListRow")
+
+    rows = []
+
+    for index, item in enumerate(items):
+        artist, album = parse_title(item)
+
+        if not album:
+            continue
+
+        date = text(item, ".albumListDate")
+
+        rows.append({
+            "rank": clean_rank(
+                text(item, ".albumListRank"),
+                start_rank + index
+            ),
+            "artist": artist,
+            "album": album,
+            "year": year_from(date),
+            "release_date": date,
+            "user_score": text(item, ".scoreValue"),
+            "ratings_count": re.sub(
+                r"\D",
+                "",
+                text(item, ".scoreText")
+            ),
+            "genres": text(item, ".albumListGenre"),
+        })
+
+    return rows
 
 
-def main() -> None:
-    rows: list[dict[str, str]] = []
+def main():
+    rows = []
 
-    for html_path in HTML_PATHS:
-        items = read_items(html_path)
+    for i, path in enumerate(HTML_PATHS):
+        page_rows = parse_page(
+            path,
+            i * 25 + 1
+        )
 
         print(
-            f"{html_path.name}：找到 {len(items)} 条"
+            f"{path.name}: 找到 {len(page_rows)} 条"
         )
 
-        for item in items:
-            fallback_rank = len(rows) + 1
+        rows.extend(page_rows)
 
-            row = parse_item(
-                item,
-                fallback_rank,
-            )
-
-            if row is not None:
-                rows.append(row)
-
-    rows = rows[:TOP_N]
+    # 保留500条，按网页顺序
+    rows = rows[:500]
 
     OUTPUT_PATH.parent.mkdir(
         parents=True,
-        exist_ok=True,
+        exist_ok=True
     )
 
     with OUTPUT_PATH.open(
         "w",
         encoding="utf-8-sig",
-        newline="",
-    ) as csv_file:
+        newline=""
+    ) as f:
         writer = csv.DictWriter(
-            csv_file,
+            f,
             fieldnames=[
                 "rank",
                 "artist",
@@ -172,7 +126,6 @@ def main() -> None:
                 "genres",
             ],
         )
-
         writer.writeheader()
         writer.writerows(rows)
 
@@ -181,12 +134,11 @@ def main() -> None:
     print(f"文件位置：{OUTPUT_PATH.resolve()}")
 
     if rows:
-        first_row = rows[0]
-
         print(
-            "第一条："
-            f"{first_row['artist']} - "
-            f"{first_row['album']}"
+            f"第一条：{rows[0]['artist']} - {rows[0]['album']}"
+        )
+        print(
+            f"最后一条：{rows[-1]['artist']} - {rows[-1]['album']}"
         )
 
 

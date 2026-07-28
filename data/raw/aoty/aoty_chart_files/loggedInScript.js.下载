@@ -1,0 +1,1796 @@
+$(document).ready(function(){
+// Main Search Autocomplete
+$(function () {
+ 
+    // ==================== IN-MEMORY CACHE ====================
+    // Simple session cache — no localStorage I/O, zero INP impact
+    var searchCache = {};
+ 
+    // ==================== AUTOCOMPLETE ====================
+    $.ui.autocomplete.prototype._resizeMenu = function () {
+        this.menu.element.outerWidth(this.element.outerWidth());
+    };
+ 
+    // Pre-build the "See All Results" li once and clone it on open
+    var $seeAllTemplate = $('<li class="ui-menu-item seeAllResults"></li>')
+        .append('<a href="#"><strong>See All Results <i class="far fa-chevron-double-right fa-xs"></i></strong></a>');
+ 
+    $("#searchT").autocomplete({
+        source: function (request, response) {
+            var term = request.term.toLowerCase().trim();
+ 
+            // Return cached result if available
+            if (searchCache[term]) {
+                response(searchCache[term]);
+                return;
+            }
+ 
+            $.ajax({
+                url: "/search-autocomplete.php",
+                data: { term: term },
+                dataType: "json",
+                success: function (data) {
+                    searchCache[term] = data;
+                    response(data);
+                },
+                error: function () {
+                    response([]);
+                }
+            });
+        },
+        delay: 300,
+        minLength: 3,
+        appendTo: '#searchSuggestions',
+ 
+        select: function (event, ui) {
+            if (ui.item.link) {
+                location.href = ui.item.link;
+            }
+            return false;
+        },
+ 
+        open: function () {
+            var $autocomplete = $(".ui-autocomplete");
+            $autocomplete.css("z-index", 1000);
+ 
+            if ($autocomplete.find('.seeAllResults').length === 0) {
+                var $link = $seeAllTemplate.clone();
+                $link.find('a').attr('href', '/search/?q=' + encodeURIComponent(this.value));
+                $autocomplete.append($link);
+            }
+        }
+ 
+    }).data("ui-autocomplete")._renderItem = function (ul, item) {
+        var row = document.createElement('div');
+        row.className = 'resultRow';
+        row.innerHTML = item.image; // image HTML is trusted server output
+ 
+        var artist = document.createElement('div');
+        artist.textContent = item.artist || '';
+ 
+        var album = document.createElement('div');
+        album.textContent = item.album || '';
+ 
+        var year = document.createElement('div');
+        year.className = 'year';
+        year.textContent = item.year || '';
+ 
+        row.appendChild(artist);
+        row.appendChild(album);
+        row.appendChild(year);
+ 
+        return $("<li></li>")
+            .data("item.autocomplete", item)
+            .append(row)
+            .appendTo(ul);
+    };
+ 
+});
+// Add Album Like
+$('body').on("click", ".addAlbumLike", function(){	
+	var element = $(this);
+	var id = element.attr("data-album-id");
+	$.post('/scripts/insertAlbumLike.php', {albumID: id},
+	function(data){
+		$('#likeAlbumContainer_'+id).hide();
+		$('#unlikeAlbumContainer_'+id).show();		
+	});
+	return false;
+});
+// Remove Album Like
+$('body').on("click", ".removeAlbumLike", function(){	
+	var element = $(this);
+	var id = element.attr("data-album-id");
+	$.post('/scripts/deleteAlbumLike.php', {albumID: id},
+	function(data){
+		$('#unlikeAlbumContainer_'+id).hide();
+		$('#likeAlbumContainer_'+id).show();		
+	});
+	return false;
+});
+// Add Listend
+$('body').on("click", ".addListened", function(){	
+	var element = $(this);
+	var id = element.attr("data-album-id");
+	$.post('/scripts/insertListened.php', {albumID: id},
+	function(data){
+		$('#listenedContainer_'+id).hide();
+		$('#notListenedContainer_'+id).show();		
+	});
+	return false;
+});
+// Remove Listened
+$('body').on("click", ".removeListened", function(){	
+	var element = $(this);
+	var id = element.attr("data-album-id");
+	$.post('/scripts/deleteListened.php', {albumID: id},
+	function(data){
+		$('#notListenedContainer_'+id).hide();
+		$('#listenedContainer_'+id).show();		
+	});
+	return false;
+});
+// Album List Dot Menu
+$("body").on("click", ".albumMenuToggle", function(){
+    var element = $(this);
+    var id = element.attr("data-album-id");
+    var criticID = element.attr("data-critic-id");
+	var userID = element.attr("data-user-id");
+    var container = element.closest('.dotDropMenuContainer').find('.dotDropMenu');
+    
+    if ($(".active")[0] && container.hasClass("active")) {
+        $(".active").removeClass("active");
+        container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+    } else if (container.hasClass("active")) {
+        container.removeClass("active");
+    } else {
+        $(".active").removeClass("active");
+        container.addClass("active");
+        $.post('/scripts/albumMenu.php', {id: id, criticID: criticID, userID: userID},
+        function(data){
+            container.html(data);				
+        });			
+    }
+    return false;
+});
+// Close menu when clicking outside
+$(document).on("click", function(){
+    if ($(".dotDropMenu.active")[0]) {
+        $(".dotDropMenu.active").removeClass("active");
+    }
+});
+// Song List Dot Menu
+$("body").on("click", ".songMenuToggle", function(){
+	var songID = this.getAttribute('data-song-id');
+	var pageType = this.getAttribute('data-page-type');
+	var container = $("#song_menu_"+songID);
+	if ($(".active")[0] && document.getElementById("song_menu_"+songID).classList.contains("active")) {
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	} else if (document.getElementById("song_menu_"+songID).classList.contains("active")) {
+		document.getElementById("song_menu_"+songID).classList.remove("active");
+	} else {
+		$(".active").removeClass("active");
+		document.getElementById("song_menu_"+songID).classList.add("active");
+		$.post('/scripts/songMenu.php', {songID: songID, pageType: pageType},
+		function(data){
+			container.html(data);				
+		});			
+	}
+	return false;
+});
+
+// Add Track List
+$('.viewAll').on("click", ".addTrackList", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var albumID=element.attr("data-album-id");
+	container.html('');
+	$.post('/scripts/addTrackList.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+
+$('body').on("click", ".insertTrackList", function(){	
+	var tracklist = document.getElementById('tracklistData').value.trim();
+	if (tracklist.length < 1) {
+		document.getElementById('error').innerHTML = "You didn't enter anything";
+		return false;		
+	} else {
+		var container = $("#addTrackList");
+		var element = $(this);
+		var albumID=element.attr("data-album-id");
+		container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+		$.post('/scripts/insertTrackList.php', {albumID: albumID, tracklist: tracklist}, 
+		function(data){
+			container.html(data);
+		});
+		return false;
+	}
+});
+// User List Dot Menu
+$("body").on("click", ".userListMenuToggle", function(){
+	var element = $(this);
+	var id=element.attr("data-user-id");
+	var albumID=element.attr("data-album-id");
+	var artistID=element.attr("data-artist-id");
+	var count=element.attr("data-count");
+	var hideFollow=element.attr("data-hideFollow");
+	var review=element.attr("data-review");
+	var page=element.attr("data-page");
+	var type =element.attr("data-type");
+	var commentID = element.attr("data-comment-id");
+	var container = $("#user_menu_"+count);
+	if ($(".active")[0] && document.getElementById("user_menu_"+count).classList.contains("active")) {
+		$(".active").removeClass("active");
+	} else if (document.getElementById("user_menu_"+count).classList.contains("active")) {
+		document.getElementById("user_menu_"+count).classList.remove("active");
+	} else {
+		$(".active").removeClass("active");
+		document.getElementById("user_menu_"+count).classList.add("active");
+		$.post('/scripts/userMenu.php', {id: id, count: count, hideFollow: hideFollow, review: review, page: page, albumID: albumID, artistID: artistID, type: type, commentID: commentID},
+		function(data){
+			container.html(data);				
+		});			
+	}
+	return false;
+});	
+$('body').click(function() {
+	$(".active").removeClass("active");
+});
+// Low Quality Review
+$('body').on("click", ".lowQuality", function(){
+	var element = $(this);
+	var id=element.attr("data-review-id");
+	var type = element.attr("data-type");
+	$.post('/scripts/lowQuality.php', {id: id, type: type},
+	function(data){		
+	});
+	$(".active").removeClass("active");
+	document.getElementById("quality_"+id).style["display"] = "none";
+	return false;
+});
+// Pin Review
+$('body').on("click", ".pinReview", function(){
+	var element = $(this);
+	var id=element.attr("data-review-id");
+	var container = $("#user_menu_"+id);
+	$.post('/scripts/pinReview.php', {id: id},
+	function(data){		
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	});
+	return false;
+});
+// Unpin Review
+$('body').on("click", ".unpinReview", function(){
+	var element = $(this);
+	var id=element.attr("data-review-id");
+	var container = $("#user_menu_"+id);
+	$.post('/scripts/unpinReview.php', {id: id},
+	function(data){	
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	});
+	return false;
+});
+// Delete Review from Album Page
+$('body').on("click", ".deleteReview", function(){
+		$(".active").removeClass("active");
+		$("#notificationArea").show(); 
+		document.getElementById("notificationMessage").innerHTML = "";
+		document.getElementById("notificationArea").classList.add('red');
+		$("#deleteReviewCheck").show();
+		return false;
+});
+// Cancel Review Delete
+$(function() 
+{
+	$(".deleteReviewNo").click(function(){	
+		$("#deleteReviewCheck").hide();		
+		$("#notificationArea").hide(); 
+		return false;
+	});
+});
+// Confirm Review Delete
+$(function() 
+{
+	$(".deleteReviewYes").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		//Get values of the input fields and store it into the variables.
+		var albumID=element.attr("id");
+			//use the $.post() method to call insert.php file.. this is the ajax request
+			$.post('/scripts/deleteReview.php', {albumID: id},
+			function(data){
+				$("#editReviewBlock").hide();
+				$("#updateButtons").hide();
+				$("#deleteReviewCheck").hide();
+				$("#currentReviewBlock").hide();
+				$("#reviewBlock").show();
+				$("#postReviewButton").show();	
+				$("#notificationArea").hide(); 				
+			});
+			return false;
+	});
+});
+$('body').on("click", ".deleteReviewFromList", function(){	
+	var agree=confirm("Are you sure you want to delete?");
+	if (agree) {
+		var element = $(this);
+		var id=element.attr("data-review-id");
+		var page = element.attr("data-page");
+		var container = $("#user_menu_"+id);
+		$.post('/scripts/deleteReview.php', {reviewID: id, page: page},
+		function(data){	
+			var redirect = (data);
+			$(".active").removeClass("active");
+			container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+			if (page !== 'user-review') {
+				document.getElementById("review_"+id).style["display"] = "none";
+			}
+			if (redirect) {
+				window.location.replace(redirect);
+			}
+		});
+		return false;
+	} else {
+		return false ;
+	}
+});
+// Delete Review Reply
+$('body').on("click", ".deleteReviewReply", function(){	
+	var agree=confirm("Are you sure you want to delete?");
+	if (agree) {
+	var element = $(this);
+	var id=element.attr("data-id");
+		$.post('/scripts/deleteReviewReply.php', {id: id,},
+		function(data){
+			$("#reply"+id).html(data);
+		});
+	}
+	return false;
+		/*
+		var element = $(this);
+		var id=element.attr("id");
+		document.getElementById("deleteReviewReplyCheck"+id).innerHTML = "Deleting";
+			$.post('/scripts/deleteReviewReply.php', {id: id,},
+			function(data){			
+				$("#reply"+id).html(data);
+				$("#reply"+id).hide();
+				$("#reply"+id).show();
+			});
+			return false;
+		*/
+});
+// User Album Menu Toggle
+$("body").on("click", ".userAlbumMenuToggle", function(){
+	var element = $(this);
+	var albumID=element.attr("data-album-id");
+	var isMobile=element.attr("data-is-mobile");
+	var container = $("#albumMenu");
+	container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	if ($(".active")[0] && document.getElementById("albumMenu").classList.contains("active")) {
+		$(".active").removeClass("active");
+	} else if (document.getElementById("albumMenu").classList.contains("active")) {
+		document.getElementById("albumMenu").classList.remove("active");
+	} else {
+		$(".active").removeClass("active");
+		document.getElementById("albumMenu").classList.add("active");
+		$.post('/scripts/userAlbumMenu.php', {albumID: albumID, isMobile: isMobile},
+		function(data){
+			container.html(data);				
+		});			
+	}
+	return false;
+});
+
+// Delete Rating from Album Page
+$('body').on("click", ".deleteRating", function(){
+		$(".active").removeClass("active");
+		$("#notificationArea").show(); 
+		$("#deleteRatingCheck").show();
+		document.getElementById("notificationMessage").innerHTML = "";
+		document.getElementById("notificationArea").classList.add('red');
+		return false;
+});
+$(function() 
+{
+	$(".deleteRatingNo").click(function(){	
+		$("#notificationArea").hide(); 
+		$("#deleteRatingCheck").hide();		
+		return false;
+	});
+});
+$(function() 
+{
+	$(".deleteRatingYes").click(function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		//Get values of the input fields and store it into the variables.
+		var albumID=element.attr("id");
+			//use the $.post() method to call insert.php file.. this is the ajax request
+			$.post('/scripts/deleteRating.php', {albumID: id},
+			function(data){
+				$("#currentRatingBlock").hide();
+				$("#deleteRatingCheck").hide();
+				$("#notificationArea").hide(); 
+				$("#ratingBlock").show();
+			});
+			return false;
+	});
+});
+// Edit Rating
+$('body').on("click", ".editRating", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	$(".active").removeClass("active");
+	$.post('/scripts/editRating.php', {albumID: id},
+		function(data){
+		$("#ratingContainer").html(data); 
+		});
+		return false;
+});
+// Update Rating
+$('body').on("click", ".updateRating", function(){	
+	var element = $(this);
+	var container = $(".overlay");
+	var id=element.attr("id");
+	var value=$("#updateValue").val();
+	$(".overlay").html('');
+	if(!isNaN(value)){
+		if (value<=100 && value>=0 && value != '') {
+			$("#ratingContainer").html("<i class=\"fas fa-spinner fa-pulse\"></i>"); 
+			$.post('/scripts/updateRating.php', {albumID: id, value: value},
+			function(data){
+				$("#ratingContainer").html(data); 
+			});	
+			return false;	
+		} else {
+			$.post('/scripts/overlayMessage.php', {message: "Number must be between 0-100.", success: "no"},
+			function(data){
+				container.html(data);
+			});	
+			$(".overlay").addClass("show");
+			return false;			
+		}
+	} else {
+		$.post('/scripts/overlayMessage.php', {message: "Please enter a number.", success: "no"},
+			function(data){
+				container.html(data);
+			});	
+			$(".overlay").addClass("show");
+			return false;		
+	}
+});
+// Edit Review from Album Page
+$('body').on("click", ".editReviewSmall", function(){	
+		var element = $(this);
+		var id=element.attr("id");
+		$(".active").removeClass("active");
+		$("#currentReviewBlock").hide();
+		$("#updateButtons").show();
+			$.post('/scripts/editReviewSmall.php', {albumID: id},
+			function(data){
+				$("#editReviewBlock").html(data);
+				$("#editReviewBlock").hide();
+				$("#editReviewBlock").show(); 
+			});
+			return false;
+
+	});
+// Like User Review
+	$(".likeUserReview").click(function(){	
+		var element = $(this);
+		var id=element.attr("data-review-id");
+		var up=element.attr("data-up");
+		var down=element.attr("data-down");
+		if (document.getElementById("review_like_"+id).className == "review_like") {	
+			$.post('/scripts/insertReviewLike.php', {reviewID: id},
+				function(data){
+					if (data == 'Limited') {
+						document.getElementById("review_likes_"+id).getElementsByTagName('button')[0].innerHTML = '<i class="fa-regular fa-triangle-exclamation" title="Hourly Limit Reached"></i>';
+					} else {
+						$(element).trigger('icemanLike');
+						document.getElementById("review_like_"+id).className += " liked";
+						document.getElementById("review_like_txt_"+id).innerHTML = "<span class=\"heartLiked\"><i class=\"fas fa-heart\"></i></span>";
+						document.getElementById("review_likes_"+id).getElementsByTagName('button')[0].innerHTML = up;						
+					}
+				});
+		} else if (document.getElementById("review_like_"+id).className == "review_like liked") {
+			$.post('/scripts/deleteReviewLike.php', {reviewID: id},
+				function(data){
+					document.getElementById("review_like_"+id).className = "review_like";
+					document.getElementById("review_like_txt_"+id).innerHTML = "<i class=\"far fa-heart\"></i>";
+					if (down == -1) {
+						document.getElementById("review_likes_"+id).getElementsByTagName('button')[0].innerHTML = "";
+					} else {
+						document.getElementById("review_likes_"+id).getElementsByTagName('button')[0].innerHTML = down;
+					}
+			});
+		}
+		return false;
+	});
+// Genre Suggestions
+$('body').on("click", ".showGenreSuggest", function(){	
+		var element = $(this);
+		var container = $(".overlay");
+		var albumID=element.attr("data-album-id");
+		var type=element.attr("data-type");
+		container.html('<div class="content"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>');
+		$.post('/scripts/genreSuggest.php', {albumID: albumID, type: type}, 
+		function(data){
+			container.html(data);
+		});
+		$(".overlay").addClass("show");
+		return false;
+});
+$(function() {
+	$(".hideGenreSuggest").click(function(){	
+		document.getElementById("addGenre").style.display = "none";
+		document.getElementById("hideGenre").style.display = "none";
+		document.getElementById("showGenre").style.display = "inline";
+		return false;
+	});
+});
+// Add New Genre
+$('.overlay').on("click", ".addAlbumGenre", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	var genre=$("#genre").val();
+	var type = element.attr("data-type");
+	var container = $("#genreData");
+	if (genre != '') {
+		if (genre.length > 1 && genre.length <= 35) {
+			container.html('<div style="text-align: center; font-size: 3em; color: gray;"><i class="fas fa-spinner fa-pulse"></i></div>');
+			$.post('/scripts/addAlbumGenre.php', {albumID: id, genre: genre, type: type},
+			function(data){
+				container.html(data);
+				document.getElementById("genre").value = "";
+				document.getElementById('error').innerHTML = "";
+			});
+			return false;
+		} else {
+			document.getElementById('error').innerHTML = "Genre must be more than 1 character and no more than 35 characters";
+			return false;
+		}
+	} else {
+		document.getElementById('error').innerHTML = "You didn't enter anything";
+		return false;
+	}
+});
+// Genre Vote
+$('.overlay').on('click', '.genreVoteFor, .genreVoteAgainst, .genreVoteRemove', function() {
+    const btn     = $(this);
+    const albumID = btn.data('album-id');
+    const genreID = btn.data('genre-id');
+    const type    = btn.data('type');
+
+    const action = btn.hasClass('genreVoteFor')     ? 'for'
+                 : btn.hasClass('genreVoteAgainst') ? 'against'
+                 : 'remove';
+
+    btn.prop('disabled', true);
+
+    $.post('/scripts/genreVote.php', { albumID, genreID, type, action }, null, 'json')
+        .done(function(data) {
+            if (!data.success) return;
+
+            const voteButtons = btn.closest('.voteButtons').length 
+				? btn.closest('.voteButtons')
+				: btn.closest('.overlay').find('[data-genre-id="' + genreID + '"]').closest('.voteButtons').first();
+			const forBtn      = voteButtons.find('button').first();
+			const againstBtn  = voteButtons.find('button').last();
+
+            forBtn.next('.voteCount').text(data.voteFor || '');
+            againstBtn.next('.voteCount').text(data.voteAgainst || '');
+
+            forBtn.removeClass('genreVoteFor genreVoteRemove')
+                  .addClass(data.myVote == 1 ? 'genreVoteRemove' : 'genreVoteFor')
+                  .find('i').toggleClass('activeVoteFor', data.myVote == 1);
+
+            againstBtn.removeClass('genreVoteAgainst genreVoteRemove')
+                      .addClass(data.myVote == -1 ? 'genreVoteRemove' : 'genreVoteAgainst')
+                      .find('i').toggleClass('activeVoteAgainst', data.myVote == -1);
+			$.post('/scripts/getUserGenreSuggestions.php', { albumID, type })
+			.done(function(html) {
+				$('#yourSuggestions').html(html);
+			});
+        })
+        .always(function() { btn.prop('disabled', false); });
+
+    return false;
+});
+
+$(document).on("focus", "#genre", function(e){
+    $(this).autocomplete({
+        source: "/scripts/albumGenreAutocomplete.php",
+        minLength: 3,
+        select: function(event, ui) {
+			var searchTerm = ui.item.value;
+        },
+ 
+        html: false, // optional (jquery.ui.autocomplete.html.js required)
+ 
+      // optional (if other layers overlap autocomplete list)
+        open: function(event, ui) {
+            $(".ui-autocomplete").css("z-index", 999999999999);		
+			$(".ui-autocomplete li").css({fontSize: '14px'});
+
+        }
+    }); 
+});
+// Show Genre Voters
+$('.overlay').on('click', '.voterToggle', function() {
+    var list = $(this).closest('.genreSuggestVotesTitle').next('.voterList');
+    list.toggle();
+    $(this).find('i').toggleClass('fa-chevron-down fa-chevron-up');
+});
+// Add Label
+$('body').on("click", ".showAddLabel", function(){	
+		var element = $(this);
+		var container = $(".overlay");
+		var albumID=element.attr("data-album-id");
+		container.html('');
+		$.post('/scripts/addLabel.php', {albumID: albumID}, 
+		function(data){
+			container.html(data);
+		});
+		$(".overlay").addClass("show");
+		return false;
+	});
+$(document).on("focus", "#label", function(e){
+    $(this).autocomplete({
+        source: "/scripts/labelAutocomplete.php",
+        minLength: 1,
+        select: function(event, ui) {
+			var searchTerm = ui.item.value;
+			var labelID = ui.item.id;
+			document.getElementById('labelID').value = labelID;
+        },
+ 
+        html: false, // optional (jquery.ui.autocomplete.html.js required)
+ 
+      // optional (if other layers overlap autocomplete list)
+        open: function(event, ui) {
+            $(".ui-autocomplete").css("z-index", 999999999999);	
+			$(".ui-autocomplete li").css({fontSize: '14px'});			
+
+        }
+    }).data( "ui-autocomplete" )._renderItem = function( ul, item ) {
+		$('.ui-autocomplete').addClass('autoOverlay');
+		var term = this.term;
+		var regex = new RegExp("(?![^&;]+;)(?!<[^<>]*)(" + $.ui.autocomplete.escapeRegex(term) + ")(?![^<>]*>)(?![^&;]+;)", "gi");
+
+		var value = item.value.replace(regex, "<strong>$1</strong>");
+        var inner_html = value + item.descriptor + '<div style="position:absolute; right:15px; top: 4px; font-size: 12px;"><a style="cursor:pointer;" href="' + item.link + '" target="_blank" onclick="event.stopPropagation();"><i class="fa-light fa-arrow-up-right-from-square"></i></a></div>';
+        return $( "<li></li>" )
+                .data( "item.autocomplete", item )
+				.css({position: "relative", paddingRight: "24px"})
+                .append(inner_html)
+                .appendTo( ul );
+	}; 
+});
+$('.overlay').on("click", ".addLabel", function(){	
+    var element = $(this);
+    var id = element.attr("id");
+    var label = $("#labelID").val();
+    if (label != '') {
+        $.post('/scripts/submitLabel.php', {albumID: id, labelID: label},
+        function(data){
+            var response = JSON.parse(data);
+            if (response.success) {
+				$("#labelTable").html(response.tableHTML);
+				$("#labelID").val('');
+				$("#label").val('');
+			} else {
+				document.getElementById('error').innerHTML = response.message;
+			}
+        });
+        return false;
+    } else {
+        document.getElementById('error').innerHTML = "Select a label from the list.";
+        return false;
+    }
+});
+$('.overlay').on("click", ".reportLabel", function(){	
+	var element = $(this);
+	var container = $(".overlay");
+	var labelID=element.attr("data-label-id");
+	container.html('');
+	$.post('/scripts/reportLabel.php', {labelID: labelID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").show();
+	return false;
+});
+$('.overlay').on("click", ".addNewLabel", function(){	
+	 document.getElementById('newLabel').value = "";
+	 $("#editLabelAlias").hide();
+	$("#addNewLabel").show(); 
+	return false;
+});
+$('.overlay').on("click", ".addNewLabelSubmit", function(){	
+	var label=$("#newLabel").val().trim();
+	var source=$("#labelSource").val().trim();
+	var pattern = /^((http|https):\/\/)/;
+	if (!pattern.test(source)) {
+            document.getElementById('error2').innerHTML = "Please enter a valid source URL.";
+            return false;
+    } else if (label !== '' && source !== "") {
+		$.post('/scripts/submitNewLabel.php', {label: label, source: source}, 
+		function(data){
+			$("#addNewLabel").hide(); 
+			document.getElementById('error').classList.add("success");
+			document.getElementById('error').innerHTML = "<span class=\"success\">Thank you for the submission.</span>";
+		});			
+		return false;
+	} else {
+		document.getElementById('error2').innerHTML = "Please fill out both fields.";
+		return false;
+	}
+});
+$('.overlay').on("click", ".deleteLabel", function(){	
+	var element = $(this);
+	var labelID = element.attr("data-label-id");
+	var albumID = element.attr("data-album-id");
+	var count = element.attr("data-count");
+	if (confirm("Are you sure you want to delete?")) {
+		$.post('/scripts/deleteLabel.php', {labelID: labelID, albumID: albumID}, 
+		function(data){
+			document.getElementById("label_"+count).style["display"] = "none";
+			document.getElementById("label_"+count).innerHTML = "";
+		});
+	}
+	return false;
+});
+$('.overlay').on("click", ".showLabelAlias", function() {
+    var alias = $(this).attr("data-alias");
+    var albumID = $(this).attr("data-album-id");
+    $("#aliasInput").val(alias);
+    $("#aliasAlbumID").val(albumID);
+    $("#addNewLabel").hide(); // hide the add new label section
+    $("#editLabelAlias").show();
+    return false;
+});
+$('.overlay').on("click", ".submitLabelAlias", function() {
+    var alias = $("#aliasInput").val().trim();
+    var albumID = $("#aliasAlbumID").val();
+    $.post('/scripts/submitLabelAlias.php', {albumID: albumID, alias: alias},
+    function(data) {
+        var response = JSON.parse(data);
+        if (response.success) {
+            $(".showAddLabel[data-album-id='" + albumID + "']").trigger("click");
+        } else {
+            $("#aliasError").html(response.message);
+        }
+    });
+    return false;
+});
+// Delete Account
+$('.viewAll').on("click", ".deleteAccount", function(){
+	var container = $(".overlay");
+	container.html('');
+	$.post('/scripts/deleteAccountPopup.php', {}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Rate Tracks
+$('body').on("click", ".rateTracks", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var albumID = element.attr("data-album-id");
+	var songID = element.attr("data-song-id");
+	container.html('');
+	$.post('/scripts/rateTracks.php', {albumID: albumID, songID: songID}, 
+	function(data){
+		container.html(data);
+		$('.overlay input[type="text"]').each(function(){
+			$(this).data('original-value', $(this).val().trim());
+		});
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Insert Track Ratings
+$('.overlay').on("click", ".insertTrackRatings", function(){
+	var container = $(".inner");
+	var element = $(this);
+	var numTracks = element.attr("data-number-tracks");	
+	var albumID = $("#albumID").attr("data-album-id");
+
+	for (var i=1; i <= numTracks; i++) {
+		var value = document.getElementById("track_"+i).value; 
+		var songID = $("#track_"+i).attr("data-song-id");
+		var prevScore = $("#track_"+i).attr("data-prev-value");
+		var ratingID = $("#track_"+i).attr("data-rating-id");
+		var msg = document.getElementById("track_"+songID+"_msg");
+		if(!isNaN(value)){
+			if ((value<=100 && value>=0 && value != '') || (ratingID != null && value<=100 && value>=0)) {
+				var curTrack = document.getElementById("track_"+i);
+				if (prevScore != value){ 					
+					if (curTrack.value !== '') {
+						curTrack.placeholder = curTrack.value;
+					} else {
+						curTrack.placeholder = 'NR';
+					}					
+					curTrack.setAttribute('data-rating-id', '');
+					curTrack.setAttribute('data-prev-value', '');
+					curTrack.value = '';
+					curTrack.defaultValue = '';
+					curTrack.readOnly = true;
+					msg.style.display = "block";
+					$.post('/scripts/insertSongRating.php', {songID: songID, value: value, prevScore: prevScore, ratingID: ratingID},
+					function(data){
+						document.getElementById("track_"+data+"_msg").style = "color: green;";
+						document.getElementById("track_"+data+"_msg").innerHTML = "Updated";
+					});
+				}
+			}
+
+		}
+	}
+	$('.overlay input[type="text"]').each(function(){
+		$(this).data('original-value', $(this).val().trim());
+	});
+	return false;
+});
+	// Insert Album Comment
+	$(document).on("click", ".insertAlbumComment", function(){
+		var element = $(this);
+		var id = element.attr("id");
+		var replyID = element.attr("data-replyID");
+
+		if (replyID === undefined) {
+			// Top Level Comment
+			var text = $.trim($("#commentText").val());
+			if (text.length >= 2) {
+				$("#commentError").hide().html("");
+				$("#loading").show();
+				$.post('/scripts/insertAlbumComment.php', {id: id, text: text}, function(data){
+					$("#loading").hide();
+					if (data.success) {
+						$("#newPost").prepend(data.html);
+						$('#commentText').val('');
+					} else if (data.message) {
+						$("#commentError").html(data.message).show();
+					}
+				}, 'json');
+			} else {
+				$("#commentError").html("Please enter more text").show();
+			}
+		} else {
+			// Reply Comment
+			var text = $.trim($("#commentText" + replyID).val());
+			if (text.length >= 2) {
+				$("#commentError" + replyID).hide().html("");
+				$("#loading" + replyID).show();
+				$.post('/scripts/insertAlbumComment.php', {id: id, replyID: replyID, text: text}, function(data){
+					$("#loading" + replyID).hide();
+					if (data.success) {
+						$("#newReply_" + replyID).append(data.html);
+						$('#commentText' + replyID).val('');
+					} else if (data.message) {
+						$("#commentError" + replyID).html(data.message).show();
+					}
+				}, 'json');
+			} else {
+				$("#commentError" + replyID).html("Please enter more text").show();
+			}
+		}
+		return false;
+	});
+	// Delete Album Comment
+	$(document).on("click", ".deleteAlbumComment", function(){	
+		var agree=confirm("Are you sure you want to delete?");
+		if (agree) {
+		var element = $(this);
+		var id=element.attr("data-id");
+			$.post('/scripts/deleteAlbumComment.php', {id: id,},
+			function(data){
+				$("#comment_"+id).html(data);
+			});
+		}
+		return false;
+	});
+// Flag Profile
+$("body").on("click", ".flagProfile", function(){
+	var element = $(this);
+	var id=element.attr("data-user-id");
+	var container = $("#user_menu_0");
+	container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	if ($(".active")[0] && document.getElementById("user_menu_0").classList.contains("active")) {
+		$(".active").removeClass("active");
+	} else {
+		document.getElementById("user_menu_0").classList.add("active");
+		$.post('/scripts/profileFlagMenu.php', {id: id},
+		function(data){
+			container.html(data);				
+		});		
+	}
+	return false;
+});
+// Unblock User
+$("body").on("click", ".unblockUser", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	var count=element.attr("data-count");
+	var container = $("#user_menu_"+count);
+	document.getElementById("user_menu_"+count).classList.remove("active");
+	$.post('/scripts/unblock.php', {unblockID: id},
+		function(data){
+			container.html(data);
+		});
+		return false;
+});
+// Block User
+$("body").on("click", ".blockUser", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	var count=element.attr("data-count");
+	var type=element.attr("data-type");
+	var container = $("#user_menu_"+count);
+	document.getElementById("user_menu_"+count).classList.remove("active");
+	$.post('/scripts/block.php', {blockID: id, type: type},
+		function(data){
+			container.html(data);
+		});
+		return false;
+});
+// Report Overlay
+$("body").on("click", ".reportOverlay", function(){	
+	var element = $(this);
+	var userID = element.attr("data-user-id");
+	var id = element.attr("data-id");
+	var type = element.attr("data-type");
+	var container = $(".overlay");
+	var menu = document.getElementById("user_menu_0");
+	if (menu) {
+		menu.classList.remove("active");
+	}
+	$.post('/scripts/reportOverlay.php', {userID: userID, id: id, type: type}, 
+	function(data){
+		container.html(data);
+	});
+	container.addClass("show");
+	return false;
+});
+// Follow Artist
+$("body").on("click", ".followArtist", function(){	
+	var element = $(this);
+	var artistID = element.attr("data-artist-id");
+	var container = $("#followContainer_"+artistID);
+	document.getElementById("followButton_"+artistID).innerHTML = "<i class=\"fas fa-spinner fa-pulse\"></i>";
+	$.post('/scripts/followArtist.php', {artistID: artistID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Follow Artist in List
+$("body").on("click", ".followListArtist", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+		$.post('/scripts/followArtist.php', {artistID: id},
+		function(data){
+			$("#follow"+id).hide();
+			$("#unfollow"+id).show();
+		});
+		return false;
+});
+// Unfollow Artist
+$("body").on("click", ".unfollowArtist", function(){	
+	var element = $(this);
+	var artistID = element.attr("data-artist-id");
+	var container = $("#followContainer_"+artistID);
+	document.getElementById("unfollowButton_"+artistID).innerHTML = "<i class=\"fas fa-spinner fa-pulse\"></i>";
+	$.post('/scripts/unfollowArtist.php', {artistID: artistID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Unfollow Artist in List
+$("body").on("click", ".unfollowListArtist", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+		$.post('/scripts/unfollowArtist.php', {artistID: id},
+		function(data){
+		$("#unfollow"+id).hide();
+		$("#follow"+id).show(); 
+		});
+		return false;
+});
+// Ignore Artist
+$("body").on("click", ".ignoreArtist", function(){	
+	var element = $(this);
+	var artistID = element.attr("data-artist-id");
+	var container = $("#ignoreContainer_"+artistID);
+	container.html("<div class=\"ignore\"><i class=\"fas fa-spinner fa-pulse\"></i></div>");
+	$.post('/scripts/ignoreArtist.php', {artistID: artistID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Like Album Button
+$("body").on("click", ".likeAlbumButton", function(){	
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var container = $("#followContainer_"+albumID);
+	document.getElementById("followButton_"+albumID).innerHTML = "<i class=\"fas fa-spinner fa-pulse\"></i>";
+	$.post('/scripts/likeAlbumButton.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Ignore Album
+$("body").on("click", ".ignoreAlbum", function(){	
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var container = $("#ignoreContainer_"+albumID);
+	container.html("<div class=\"ignore\"><i class=\"fas fa-spinner fa-pulse\"></i></div>");
+	$.post('/scripts/ignoreAlbum.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Show User Review Likes
+$("body").on("click", ".showUserReviewLikes", function(){	
+	var element = $(this);
+	var reviewID = element.attr("data-review-id");
+	var container = $(".overlay");
+	$.post('/scripts/showUserReviewLikes.php', {reviewID: reviewID}, 
+	function(data){
+		container.html(data);
+	});
+	container.addClass("show");
+	return false;
+});
+// Favorites Popup
+$('body').on("click", ".favoritePopup", function(){
+	var element = $(this);
+	var type = element.attr("data-type");
+	var container = $(".overlay");
+	container.html('<div class="content"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>');
+	$.post('/scripts/favoritePopup.php', {type, type}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Add Favorite
+$('.overlay').on("click", ".addFavorite", function(){
+	var element = $(this);
+	var container = $("#listEdit");
+	var albumID = element.attr("data-album-id");
+	var artistID = element.attr("data-artist-id");
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$.post('/scripts/addFavorite.php', {albumID: albumID, artistID: artistID}, 
+	function(data){	
+		container.html(data);		
+	});
+	return false;
+});
+// Delete Confirmation Box
+$('body').on("click", ".deleteFavoriteConfirm", function(){
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var artistID = element.attr("data-artist-id");
+	var container = $(".overlay");
+	container.html('');
+	$.post('/scripts/deleteFavoriteConfirm.php', {albumID: albumID, artistID: artistID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;	
+});	
+// Delete Favorite
+$('.overlay').on("click", ".deleteFavorite", function(){
+	var container = $(".overlay");
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var artistID = element.attr("data-artist-id");
+	document.getElementById("favBlock").innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+	$.post('/scripts/deleteFavorite.php', {albumID: albumID, artistID: artistID}, 
+	function(data){			
+		document.getElementById("favBlock").innerHTML = data;			
+	});
+	container.html('');
+	$(".overlay").removeClass("show");
+	return false;
+});
+// Edit Favorite
+$('.overlay').on("click", ".editFavorite", function(){
+	var container = $("#listEdit");
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var artistID = element.attr("data-artist-id");
+	var type = element.attr("data-type");
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$.post('/scripts/editFavorite.php', {albumID: albumID, artistID, artistID, type: type}, 	
+	function(data){			
+		container.html(data);		
+	});
+	return false;
+});
+// Search User Content
+$('body').on("click", ".searchUserContent", function(){
+	var container = $("#albumOutput");
+	var element = $(this);
+	var type = element.attr("data-type");
+	var userID = element.attr("data-user-id");
+	var filter = element.attr("data-filter");
+	var query = document.getElementById('searchUserContentBox').value.trim();
+	if (!query) return false;
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$('#clearSearch').show();	
+	$('#searchIcon').hide();
+	document.getElementsByClassName("filterRow")[0].style.visibility = "hidden";
+	$.post('/scripts/searchUserContent.php', {type: type, userID: userID, query: query, filter: filter}, 	
+	function(data){		
+		container.html(data);		
+	});
+	return false;
+});
+$("#searchUserContentBox").keyup(function(event) {
+	if (event.keyCode === 13) {
+		$("#searchButton").click();
+	}
+});
+// Search Content
+$('body').on("click", ".searchContent", function(){
+	var container = $("#albumOutput");
+	var element = $(this);
+	var type = element.attr("data-type");
+	var artistID = element.attr("data-artist-id");
+	var query = document.getElementById('searchContentBox').value.trim();
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$('#clearSearch').show();	
+	$('#searchIcon').hide();
+	document.getElementsByClassName("filterRow")[0].style.visibility = "hidden";
+	$.post('/scripts/searchContent.php', {type: type, artistID: artistID, query: query}, 	
+	function(data){		
+		container.html(data);		
+	});
+	return false;
+});
+$("#searchContentBox").keyup(function(event) {
+	if (event.keyCode === 13) {
+		$("#searchButton").click();
+	}
+});
+$('body').on("click", ".toggleSearch", function(){
+    var $box = $('#toggleSearch');
+    $box.toggle();
+    if($box.is(':visible')) {
+        $box.find('input[type="text"]').focus();
+    }
+    return false;
+});
+// Random Album
+$('body').on("click", ".randomAlbum", function(){
+	var container = $(".overlay");
+	var element = $(this);
+	var userListID = element.attr("data-user-list-id");
+	var libraryID = element.attr("data-library-id");
+	var id = element.attr("data-id");
+	var type = element.attr("data-type");
+	var releaseType = element.attr("data-release-type");
+	var filter = element.attr("data-filter");
+	var genreID = element.attr("data-genre-id");
+	container.html('<div class="content"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>');
+	container.addClass("show");
+	$.post('/scripts/randomAlbum.php', {userListID: userListID, libraryID: libraryID, id: id, type: type, releaseType: releaseType, filter: filter, genreID: genreID}, 	
+	function(data){		
+		container.html(data);		
+	});
+	return false;
+});	
+// Insert Artist Comment
+$(document).on("click", ".insertArtistComment", function(){
+	var element = $(this);
+	var id=element.attr("id");
+	var replyID=element.attr("data-replyID");	
+	if (replyID === undefined) {
+		// Top Level Comment
+		var text=$.trim($("#commentText").val());
+		if (text.length >= 3) {
+			document.getElementById("commentError").innerHTML = "";
+			$("#loading").show();
+			$.post('/scripts/insertArtistComment.php', {id: id, text:text},
+			function(data){
+				$(".commentBox").hide();
+				$("#newPost").prepend(data);
+				$("#loading").hide();
+			});
+			$('#commentText').val('');
+		} else {
+			$("#commentError").show(); 
+			document.getElementById("commentError").innerHTML = "Please enter more text";
+		}
+	} else {
+		// Reply Comment
+		var text=$.trim($("#commentText"+replyID).val());
+		if (text.length >= 3) {
+			document.getElementById("commentError"+replyID).innerHTML = "";
+			$("#loading"+replyID).show();
+			$.post('/scripts/insertArtistComment.php', {id: id, replyID: replyID, text:text},
+			function(data){
+				$("#commentBox_"+replyID).hide();
+				$("#newReply_"+replyID).append(data);
+				$("#loading"+replyID).hide();
+			});
+			$('#commentText'+replyID).val('');
+		} else {
+			$("#commentError"+replyID).show(); 
+			document.getElementById("commentError"+replyID).innerHTML = "Please enter more text";
+		}
+	}
+	return false;
+});
+// Delete Artist Comment
+$(document).on("click", ".deleteArtistComment", function(){	
+	var agree=confirm("Are you sure you want to delete?");
+	if (agree) {
+	var element = $(this);
+	var id=element.attr("data-id");
+		$.post('/scripts/deleteArtistComment.php', {id: id,},
+		function(data){
+			$("#comment_"+id).html(data);
+		});
+	}
+	return false ;
+});
+// Add Review Author
+	$('body').on("click", ".addReviewAuthor", function(){
+		var container = $(".overlay");
+		var element = $(this);
+		var reviewID = element.attr("data-review-id");
+		$(".active").removeClass("active");
+		container.html('<div class="content"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>');
+		container.addClass("show");
+		$.post('/scripts/addReviewAuthor.php', {reviewID: reviewID}, 	
+		function(data){		
+			container.html(data);		
+		});
+		return false;
+	});
+// Author Autocomplete
+$(document).on("focus", "#author", function(e){
+    $(this).autocomplete({
+        source: "/scripts/authorAutocomplete.php",
+        minLength: 1,
+        select: function(event, ui) {
+			var searchTerm = ui.item.value;
+			var authorID = ui.item.id;
+			document.getElementById('authorID').value = authorID;
+        },
+ 
+        html: false, // optional (jquery.ui.autocomplete.html.js required)
+ 
+      // optional (if other layers overlap autocomplete list)
+        open: function(event, ui) {
+            $(".ui-autocomplete").css("z-index", 999999999999);	
+			$(".ui-autocomplete li").css({fontSize: '14px'});			
+
+        }
+    }); 
+});
+// Insert Review Author
+$('.overlay').on("click", ".insertReviewAuthor", function(){	
+	var element = $(this);
+	var reviewID = element.attr("data-review-id");
+	var author = $("#author").val().trim();
+	var authorID = $("#authorID").val();
+	var container = $("#addGenre");	
+	if (author != '') {
+		container.html('<div style="text-align: center; font-size: 3em; color: gray;"><i class="fas fa-spinner fa-pulse"></i></div>');
+		$.post('/scripts/insertReviewAuthor.php', {authorID: authorID, author: author, reviewID: reviewID},
+		function(data){
+			container.html(data);
+			//document.getElementById("label").value = "";
+			//document.getElementById('error').innerHTML = "";
+		});
+		return false;
+		 
+	} else {
+		//document.getElementById('error').innerHTML = "You didn't enter an author.";
+		return false;
+	}
+});
+// Edit Review Link
+	$('body').on("click", ".editReviewLink", function(){
+		var container = $(".overlay");
+		var element = $(this);
+		var reviewID = element.attr("data-review-id");
+		$(".active").removeClass("active");
+		container.html('<div class="content"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>');
+		container.addClass("show");
+		$.post('/scripts/editReviewLink.php', {reviewID: reviewID}, 	
+		function(data){		
+			container.html(data);		
+		});
+		return false;
+	});	
+// Add Tags Popup
+$('body').on("click", ".addTags", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var albumID=element.attr("data-album-id");
+	container.html('');
+	$.post('/scripts/addTags.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Recommend Album
+$('body').on("click", ".recommendAlbum", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var albumID=element.attr("data-album-id");
+	container.html('');
+	$.post('/scripts/recommendAlbum.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Unfollow User in List
+$("body").on("click", ".unfollowList", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	//Get values of the input fields and store it into the variables.
+		//use the $.post() method to call insert.php file.. this is the ajax request
+		$.post('/scripts/unfollow.php', {friendID: id},
+		function(data){
+		$("#unfollow"+id).hide();
+		$("#follow"+id).show(); 
+		});
+		return false;
+});
+// Follow User in List
+$("body").on("click", ".followList", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+	//Get values of the input fields and store it into the variables.
+		//use the $.post() method to call insert.php file.. this is the ajax request
+		$.post('/scripts/follow.php', {friendID: id},
+		function(data){
+			if (data == 'limit') {
+				$("#follow"+id+" div").html('Limited');
+				$("#follow"+id+" div").css("background-color","#F0E68C");
+			} else {
+				$("#follow"+id).hide();
+				$("#unfollow"+id).show();
+			}
+		});
+		return false;
+});
+$("body").on("click", ".unfollowListSmall", function(){
+	var element = $(this);
+	var id=element.attr("id");
+	//Get values of the input fields and store it into the variables.
+		//use the $.post() method to call insert.php file.. this is the ajax request
+		$.post('/scripts/unfollow.php', {friendID: id},
+		function(data){
+		$("#unfollowSmall"+id).hide();
+		$("#followSmall"+id).show(); 
+		});
+		return false;
+});
+$("body").on("click", ".followListSmall", function(){
+	var element = $(this);
+	var id=element.attr("id");
+	//Get values of the input fields and store it into the variables.
+		//use the $.post() method to call insert.php file.. this is the ajax request
+		$.post('/scripts/follow.php', {friendID: id},
+		function(data){
+		$("#followSmall"+id).hide();
+		$("#unfollowSmall"+id).show(); //Fade in the data given by the insert.php file
+		});
+		return false;
+});
+// Popup Comment
+$('body').on("click", ".popupComment", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var id = element.attr("data-id");
+	var type = element.attr("data-type");
+	container.html('');
+	$.post('/scripts/popupComment.php', {id: id, type: type}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Mention in Comment
+$('body').on("click", ".mentionComment", function(){
+	var element = $(this);
+	var name = element.attr("data-user");
+	var target = element.attr("data-target");
+	if (name !== '') {
+		var txt = $("#" + target).val();
+		$("#" + target).val(txt + "@" + name + " ");
+		$("#" + target).focus();
+		//$('html,body').animate({scrollTop: $("#" + target).offset().top-50},'slow');
+	}
+	return false;
+});
+// Show Users
+$("body").on("click", ".showUsers", function(){	
+	var element = $(this);
+	var itemID = element.attr("data-item-id");
+	var type = element.attr("data-type");
+	var container = $(".overlay");
+	$.post('/scripts/showUsers.php', {itemID: itemID, type: type}, 
+	function(data){
+		container.html(data);
+	});
+	container.addClass("show");
+	return false;
+});
+// Show More Users
+$("body").on("click", ".showMoreUsers", function(){	
+	var element = $(this);
+	var itemID = element.attr("data-item-id");
+	var type = element.attr("data-type");
+	var start = element.attr("data-start");
+	var container = $("#showMore_"+start);
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$.post('/scripts/showUsers.php', {itemID: itemID, type: type, start: start}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Pin List
+$('body').on("click", ".pinList", function(){
+	var element = $(this);
+	var listID=element.attr("data-list-id");
+	var type=element.attr("data-type");
+	$.post('/scripts/pinList.php', {listID: listID, type: type},
+	function(data){		
+		if (type == 'unpin') {
+			element.attr("data-type","pin");
+			document.getElementById("pin").classList.remove("highlight")
+		} else if (type == 'pin') {
+			element.attr("data-type","unpin");
+			document.getElementById("pin").classList.add("highlight")
+		}
+	});
+
+	return false;
+});
+// Profile Settings
+$("body").on("click", ".showSettings", function(){	
+	var element = this;
+	var type = element.getAttribute("data-type");
+	var container = $(".overlay");
+	$.post('/scripts/settings/showSettings.php', {type: type}, 
+	function(data){
+		container.html(data);
+	});
+	container.addClass("show");
+	return false;
+});
+$("body").on("click", ".selectSetting", function(){	
+	var element = this;
+	var parent = element.parentElement;
+	var type = element.getAttribute("data-type");
+	var option = element.getAttribute("data-option");
+	var options = document.getElementsByClassName(type);
+	for (let i = 0; i < options.length; i++) {
+		options[i].classList.remove('selected');
+	}
+	$.post('/scripts/settings/updateSetting.php', {type: type, option: option}, 
+		function(data){
+			parent.classList.add('selected');
+		});
+	return false;
+});
+// Username Change
+$("body").on("click", ".showEditUsername", function(){	
+	var element = $(this);
+	var container = $(".overlay");
+	$.post('/scripts/showEditUsername.php', {}, 
+	function(data){
+		container.html(data);
+	});
+	container.addClass("show");
+	return false;
+});
+$("body").on("click", ".editUsername", function(){	
+	var element = $(this);
+	var newUserName = document.getElementById('newUserName').value.trim();
+	var printError = document.getElementById('error');
+	var container = $(".overlay");
+	const nameCheck = /^[a-zA-Z0-9_]+$/;
+	var specialChars = nameCheck.test(newUserName);
+	if (newUserName === '') {
+		printError.innerHTML = "Must include at least one letter or number";
+	} else if (newUserName.length > 15) {
+		printError.innerHTML = "Too Long";
+	} else if (!specialChars) {
+		printError.innerHTML = "Please use alphanumeric characters only [A-Z], [0-9]. No spaces allowed.";
+	} else {
+		$.post('/scripts/editUsername.php', {newUserName: newUserName}, 
+		function(data){
+			if (data == 'Bad Username') {
+				printError.innerHTML = "Bad Username.";
+			} else {
+				container.hide();
+				document.getElementById('username').innerHTML = newUserName;
+			}
+		});
+		
+	}
+	return false;
+});
+// Refresh Comments
+$("body").on("click", ".refreshComments", function(){	
+	var element = this;
+	var type = element.getAttribute("data-type");
+	var id = element.getAttribute("data-id");
+	var container = $("#commentList");
+	var refresh = document.getElementById('refresh'); 
+	refresh.innerHTML = 'Refresh <i class="fas fa-spinner fa-spin"></i>';
+	$.post('/scripts/refreshComments.php', {type: type, id: id}, 
+	function(data){
+		container.html(data);
+		$(".commentBox").show();
+		refresh.innerHTML = 'Refresh <i class="fa-solid fa-arrows-rotate"></i>';
+		// Update the polling timestamp and hide notification
+		if (typeof newestTimestamp !== 'undefined') {
+			newestTimestamp = Math.floor(Date.now() / 1000);
+			newCommentCount = 0;
+		}
+	});
+	return false;
+});
+// Follow Publication
+$("body").on("click", ".followPub", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+		$.post('/scripts/followPub.php', {pubID: id},
+		function(data){
+			$("#followContainer").hide();
+			$("#followingContainer").show();
+		});
+		return false;
+});
+// Follow Publication in List
+$("body").on("click", ".followListPub", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+		$.post('/scripts/followPub.php', {pubID: id},
+		function(data){
+			$("#follow"+id).hide();
+			$("#unfollow"+id).show();
+		});
+		return false;
+});
+// Unfollow Publication
+$("body").on("click", ".unfollowPub", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+		$.post('/scripts/unfollowPub.php', {pubID: id},
+		function(data){
+			$("#followingContainer").hide();
+			$("#followContainer").show();
+		});
+		return false;
+});
+// Unfollow Publication in List
+$("body").on("click", ".unfollowListPub", function(){	
+	var element = $(this);
+	var id=element.attr("id");
+		$.post('/scripts/unfollowPub.php', {pubID: id},
+		function(data){
+		$("#unfollow"+id).hide();
+		$("#follow"+id).show(); 
+		});
+		return false;
+});
+// Hide Notification
+$("body").on("click", ".hideNotification", function(){	
+	var element = this;
+	var id = element.getAttribute("data-id");
+	var type = element.getAttribute("data-type");
+	var option = element.getAttribute("data-option");
+		$.post('/scripts/hideNotification.php', {id: id, type: type, option: option},
+		function(data){
+			document.getElementById("notification_"+id).style["display"] = "none";
+		});
+		return false;
+	
+});
+// Menu Functions //
+$("body").on("click", ".addLibraryMenu", function(){
+	var element = $(this);
+	var id=element.attr("id");
+	var container = $("#album_menu_"+id);
+	$.post('/scripts/addSpinList.php', {albumID: id},
+	function(data){
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	});
+	return false;	
+});
+$("body").on("click", ".removeLibraryMenu", function(){
+	var element = $(this);
+	var id=element.attr("id");
+	var container = $("#album_menu_"+id);
+	$.post('/scripts/removeSpinList.php', {albumID: id},
+	function(data){
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');
+	});
+	return false;	
+});
+$("body").on("click", ".addAlbumLikeMenu", function(){
+	var element = $(this);
+	var id = element.attr("id");
+	var container = $("#album_menu_"+id);
+	$.post('/scripts/insertAlbumLike.php', {albumID: id},
+	function(data){
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');		
+	});
+	return false;	
+});
+$('body').on("click", ".removeAlbumLikeMenu", function(){	
+	var element = $(this);
+	var id = element.attr("id");
+	var container = $("#album_menu_"+id);
+	$.post('/scripts/deleteAlbumLike.php', {albumID: id},
+	function(data){
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');		
+	});
+	return false;
+});
+$("body").on("click", ".addListenMenu", function(){
+	var element = $(this);
+	var id = element.attr("id");
+	var container = $("#album_menu_"+id);
+	$.post('/scripts/insertListened.php', {albumID: id},
+	function(data){
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');		
+	});
+	return false;	
+});
+$('body').on("click", ".removeListenMenu", function(){	
+	var element = $(this);
+	var id = element.attr("id");
+	var container = $("#album_menu_"+id);
+	$.post('/scripts/deleteListened.php', {albumID: id},
+	function(data){
+		$(".active").removeClass("active");
+		container.html('<div class="row" style="text-align: center;"><i class="fas fa-spinner fa-pulse"></i></div>');		
+	});
+	return false;
+});
+// Insert to Existing User List
+$('body').on("click", ".insertExistingList", function(){	
+	var element = $(this);
+	var container = $("#addToListContent");
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	var albumID=element.attr("data-album-id");
+	var listID=element.attr("data-list-id");	
+	$.post('/scripts/userLists/insertExistingList.php', {albumID: albumID, listID: listID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+
+});
+// Add to List
+$('body').on("click", ".newList", function(){
+	var element = $(this);
+	var container = $("#addToListContent");
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	var albumID=element.attr("data-album-id");
+	$.post('/scripts/userLists/newList.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Insert New List
+$('body').on("click", ".insertNewList", function(){	
+	var title = document.getElementById('listName').value.trim();
+	if (title.length < 3) {
+		document.getElementById('newListError').innerHTML = "Your title is too short";
+		return false;
+	} else {
+		var element = $(this);
+		var description = document.getElementById('listDescription').value.trim();	
+		var rankedList = document.querySelector('#rankedCheckBox').checked;
+		var privateList = document.querySelector('#privateCheckBox').checked;
+		var albumID=element.attr("data-album-id");
+		if (albumID != null) {
+			var container = $("#addToListContent");
+			container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+			$.post('/scripts/userLists/insertNewList.php', {albumID: albumID, title: title, description: description, rankedList: rankedList, privateList: privateList}, 
+			function(data){
+				container.html(data);
+				//window.location.href = data;
+			});
+		} else {
+			var container = $("#newListForm");
+			$.post('/scripts/userLists/insertNewList.php', {title: title, description: description, rankedList: rankedList, privateList: privateList}, 
+			function(data){
+				container.html(data);
+			});	
+		}
+		return false;
+	}
+});
+// Hide For You on Homepage
+$('body').on("click", ".hideForYou", function(){	
+    var now = new Date();
+    var day = now.getUTCDay();
+    var daysUntilFriday = (5 - day + 7) % 7 || 7;
+    var nextFriday = new Date(now.getTime() + daysUntilFriday * 24 * 60 * 60 * 1000);
+    nextFriday.setUTCHours(6, 0, 0, 0);
+    
+    document.cookie = 'hideForYou=1; path=/; expires=' + nextFriday.toUTCString();
+    
+    $('#forYouSection').slideUp();
+});
+// Tag Autocomplete
+$(document).on("focus", "#tag", function(e){
+    $(this).autocomplete({
+        source: "/scripts/albumTagAutocomplete.php",
+        minLength: 3,
+        select: function(event, ui) {
+			var searchTerm = ui.item.value;
+        },
+ 
+        html: false, // optional (jquery.ui.autocomplete.html.js required)
+ 
+      // optional (if other layers overlap autocomplete list)
+		open: function(event, ui) {
+            $(".ui-autocomplete").css("z-index", 999999999999);	
+			$(".ui-autocomplete li").css({fontSize: '14px'});			
+
+        }
+    }); 
+});
+// Insert Tag
+$('.overlay').on("click", ".insertTag", function(){
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var tag = $("#tag").val().trim();
+	var container = $("#tagMessage");
+	if (tag.length > 1 && tag.length <= 35) {
+		$.post('/scripts/insertTag.php', {albumID: albumID, tag: tag}, 
+		function(data){
+			document.getElementById("tag").value = "";
+			container.html(data);
+		});
+	} else {
+		document.getElementById("tagMessage").style.color = "#D76666";
+		document.getElementById("tagMessage").innerHTML = "Tag must be more than 1 character and no more than 35";
+	}
+	return false;
+});
+});

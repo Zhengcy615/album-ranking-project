@@ -1,0 +1,619 @@
+$(document).ready(function(){
+	$(document).on('mouseenter', 'li.menuDropSelected', function(){
+			var element = $(this);
+			var id=$(this).attr("id");
+			hoverTimer = setTimeout(function() {
+				document.getElementById(id).className = "menuDropSelected over";
+			}, 500);
+		}
+	);
+	$(document).on('mouseleave', 'li.menuDropSelected', function(){
+			clearTimeout(hoverTimer);
+			var element = $(this);
+			var id=$(this).attr("id");
+			document.getElementById(id).className = "menuDropSelected";
+		});
+	$(document).on('click', 'li.menuDropSelected', function () {
+        var element = $(this);
+		var id=$(this).attr("id");
+		var e = document.getElementById(id);
+		if (e.className == "menuDropSelected") {
+			e.className = "menuDropSelected over";
+		} else {
+			e.className = "menuDropSelected";
+		}
+		/*var e = document.getElementById(id).getElementsByTagName("ul")[0];
+		if(e.style.display == 'block') {
+			e.style.display = 'none';
+		} else {
+			e.style.display = 'block';
+		} */
+    });
+    $('.socialShare').click(function(e) {
+        e.preventDefault();
+        window.open($(this).attr('href'), 'fbShareWindow', 'height=450, width=550, top=' + ($(window).height() / 2 - 275) + ', left=' + ($(window).width() / 2 - 225) + ', toolbar=0, location=0, menubar=0, directories=0, scrollbars=0');
+        return false;
+    });
+	
+});
+
+    function changeClass()
+    {
+		document.getElementById("header").classList.toggle('navOpen');
+		document.body.classList.toggle('noScroll');
+
+		// Toggle nav and search visibility
+   		toggle_visibility('searchContainer', 'nav');
+		
+		// Close profile menu if open
+		var profileMenu = document.querySelector('.mobileProfile .userLinks');
+		if (profileMenu) {
+			profileMenu.style.display = 'none';
+		}
+		// Toggle icon
+		var icon = document.querySelector('.navButton i');
+		icon.classList.toggle('fa-bars');
+		icon.classList.toggle('fa-times');
+    }
+   function toggle_visibility(id, id2) {
+       var e = document.getElementById(id);
+	   var s = document.getElementById(id2);
+       if(e.style.display == 'block') {
+          e.style.display = 'none';
+		  s.style.display = 'none';
+	   }
+       else {
+			e.style.display = 'block';
+			s.style.display = 'block';
+	   }
+    }
+// Self menu toggle
+$("#graybg").on("click", ".selfMenuToggle", function(){
+	var element = $(this);
+	var count=element.attr("data-count");
+	if ($(".active")[0] && document.getElementById("user_menu_"+count).classList.contains("active")) {
+		$(".active").removeClass("active");
+	} else if (document.getElementById("user_menu_"+count).classList.contains("active")) {
+		document.getElementById("user_menu_"+count).classList.remove("active");
+	} else {
+		$(".active").removeClass("active");
+		document.getElementById("user_menu_"+count).classList.add("active");
+	}
+	return false;
+});
+
+// Grow textbox as you type
+$(document).on('keyup paste', '.commentTextBox, .reviewTextBox', function() {
+	var $el = $(this),
+	offset = $el.innerHeight() - $el.height();
+	if ($el.innerHeight < this.scrollHeight) {
+		//Grow the field if scroll height is smaller
+		$el.height(this.scrollHeight - offset);
+	} else {
+		//Shrink the field and then re-set it to the scroll height in case it needs to shrink
+		$el.height(1);
+		$el.height(this.scrollHeight - offset);
+	}
+});
+// Show More
+$("body").on("click", ".showMore", function(){
+	var element = $(this);
+	var type = element.attr("data-type");
+	// Album User Lists
+	if (type == "albumUserLists") {		
+		var albumID = element.attr("data-albumID");
+		var sort = element.attr("data-sort");
+		var show = element.attr("data-show");
+		var start = element.attr("data-start");
+		document.getElementById("showMore_" + start).innerHTML = '<div class="section center"><i class="fas fa-spinner fa-pulse"></i></div>';
+		$.post('/scripts/showMore.php', {type: type, albumID: albumID, sort: sort, show: show, start: start},
+		function(data){
+			document.getElementById("showMore_" + start).innerHTML = data;				
+		});	
+	// Album Likes & Library
+	} else if (type == "albumLibrary" || type == "albumLikes") {
+		var albumID = element.attr("data-albumID");
+		var sort = element.attr("data-sort");
+		var show = element.attr("data-show");
+		var start = element.attr("data-start");
+		document.getElementById("showMore_" + start).innerHTML = '<div class="section center"><i class="fas fa-spinner fa-pulse"></i></div>';
+		$.post('/scripts/showMore.php', {type: type, albumID: albumID, sort: sort, show: show, start: start},
+		function(data){
+			document.getElementById("showMore_" + start).innerHTML = data;				
+		});	
+	// Monthly Releases
+	} else if (type == "albumMonth") {
+		var sort = element.attr("data-sort");
+		var albumType = element.attr("data-albumType");
+		var start = element.attr("data-start");
+		var date = element.attr("data-date");
+		var genre = element.attr("data-genre");
+		var reviews = element.attr("data-reviews");
+		document.getElementById("showMore_" + start).innerHTML = '<div class="section center"><i class="fas fa-spinner fa-pulse"></i></div>';
+		$.post('/scripts/showMore.php', {type: type, albumID: albumID, sort: sort, albumType: albumType, start: start, date: date, genre: genre, reviews: reviews},
+		function(data){
+			document.getElementById("showMore_" + start).innerHTML = data;				
+		});			
+	}
+	return false;
+});	
+// Close Overlay
+$('.overlay').on("click", ".overlayClose", function(){
+	var container = $(".overlay");
+	container.html('');
+	$(".overlay").removeClass("show");
+	return false;
+});
+const overlay = document.querySelector(".overlay");
+overlay.addEventListener("click", (e) => {
+  // Check if user has selected text
+  const selection = window.getSelection();
+  const hasTextSelected = selection && selection.toString().length > 0;
+  if (hasTextSelected) {
+    // User dragged to select text — don't close the overlay
+    return;
+  }
+  // Only close if they clicked the backdrop itself
+  if (e.target === overlay) {
+	var hasUnsaved = false;
+	$('.overlay input[type="text"], .overlay input[type="search"], .overlay textarea').each(function(){
+		var original = $(this).data('original-value');
+        var current = $(this).val().trim();
+		if (original !== undefined) {
+			if (current !== String(original)) hasUnsaved = true;
+		} else {
+			if (current !== '') hasUnsaved = true;
+		}
+	});
+
+	if (hasUnsaved && !confirm("You have unsaved changes. Close anyway?")) {
+		return;
+	}
+    const container = $(".overlay");
+    container.html('');
+    container.removeClass("show");
+  }
+});
+// Show Album Credits
+$("body").on("click", ".showAlbumCredits", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var albumID=element.attr("data-album-id");
+	var type=element.attr("data-type");
+	var role=element.attr("data-role");
+	container.html('');
+	$.post('/scripts/showAlbumCredits.php', {albumID: albumID, type: type, role: role}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;	
+});
+// Show More Details
+$("body").on("click", ".showMoreDetails", function(){
+	var element = $(this);
+	var type = element.attr("data-type");
+	document.getElementById(type).style.display = "inline";
+	document.getElementById("show_"+type).style.display = "none";
+	//$("#"+type).css("display", "inline");
+	return false;		
+});
+// Show Artist Credits
+$("body").on("click", ".showArtistCredits", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var artistID=element.attr("data-artist-id");
+	var type=element.attr("data-type");
+	container.html('');
+	$.post('/scripts/showArtistCredits.php', {artistID: artistID, type: type}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;	
+});
+// Source Select
+$("body").on("click", ".sourceSelect", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var year=element.attr("data-year");
+	var sourceID=element.attr("data-source-id");
+	var genreID=element.attr("data-genre-id");
+	container.html('');
+	$.post('/scripts/sourceSelect.php', {year: year, sourceID: sourceID, genreID: genreID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;	
+});
+// Genre Select
+$("body").on("click", ".genreSelect", function(){
+	var element = $(this);
+	var container = $(".overlay");
+	var year=element.attr("data-year");
+	var genreID=element.attr("data-genre-id");
+	var decade=element.attr("data-decade");
+	var type = element.attr("data-type");
+	var userID =  element.attr("data-user-id");
+	var releaseType =  element.attr("data-release-type");
+	var sourceID =  element.attr("data-source-id");
+	var sort = element.attr("data-sort");
+	container.html('');
+	$.post('/scripts/genreSelect.php', {type: type, year: year, genreID: genreID, decade: decade, userID: userID, releaseType: releaseType, sourceID: sourceID, sort: sort}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;	
+});
+// Search Genres in Overlay
+$('body').on("click", ".searchGenre", function(){
+	var container = $(".overlay");
+	var element = $(this);
+	var query = document.getElementById('genreSearch').value.trim();
+	var year=element.attr("data-year");
+	var genreID=element.attr("data-genre-id");
+	var decade=element.attr("data-decade");
+	var type = element.attr("data-type");
+	var userID =  element.attr("data-user-id");
+	var releaseType =  element.attr("data-release-type");
+	var sourceID =  element.attr("data-source-id");
+	var sort = element.attr("data-sort");
+	if (query.length > 1) {
+		container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+		
+		$.post('/scripts/genreSelect.php', {type: type, year: year, genreID: genreID, decade: decade, userID: userID, releaseType: releaseType, sourceID: sourceID, sort: sort, query: query}, 	
+		function(data){		
+			container.html(data);		
+			$('.overlay #clearSearch').show();	
+			$('.overlay #searchIcon').hide();
+			$('.overlay #genreSearch').prop('readonly', true);
+		});
+		
+	}
+	
+	return false;
+});
+$('body').on("keyup", "#genreSearch", function(event) {
+    if (event.keyCode === 13) {
+        $("#submitSearch").click();
+    }
+});
+// Show Artist Ratings
+$('body').on("click", ".showArtistRatings", function(){
+	var element = $(this);
+	var userID = element.attr("data-user-id");
+	var criticID = element.attr("data-critic-id");
+	var artistID = element.attr("data-artist-id");
+	var albumID = element.attr("data-album-id");
+	var container = $(".overlay");
+	//container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$.post('/scripts/showArtistRatings.php', {userID: userID, criticID: criticID, artistID: artistID, albumID: albumID}, 
+	function(data){
+		$(".active").removeClass("active");
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;	
+});
+// Show All Comments
+$('body').on("click", ".viewAllComments", function(){
+	var element = $(this);
+	var itemID = element.attr("data-item-id");
+	var albumID = element.attr("data-album-id");
+	var type = element.attr("data-type");
+	var container = $("#commentsContainer");
+	if (type == 'user_review' || type == 'news' || type == 'user_list' || type == 'yearEndList') {
+		$("#moreLink").hide();
+	}
+	container.html('<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>');
+	$.post('/scripts/viewAllComments.php', {type: type, itemID: itemID, albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Change Distribution
+$('body').on("click", ".changeDistribution", function(){
+	var element = $(this);
+	var type = element.attr("data-type");
+	var format = element.attr("data-format");
+	var itemID = element.attr("data-item-id");
+	var container = $("#ratingDistribution");
+	var toggleConfig = {
+		'profile-singles': { newFormat: 'videos', label: 'Singles', flipIcon: true },
+		'profile-videos': { newFormat: 'tracks', label: 'Videos', flipIcon: false },
+		'profile-tracks': { newFormat: 'albums', label: 'Tracks', flipIcon: true },
+		'profile-albums': { newFormat: 'singles', label: 'Albums', flipIcon: false },
+		'album-following': { newFormat: 'all', label: 'Following', flipIcon: true },
+		'album-all': { newFormat: 'following', label: 'All', flipIcon: false }
+	};
+	
+	$.post('/scripts/changeDistribution.php', {type: type, format: format, itemID: itemID}, 
+	function(data){
+		var key = type + '-' + format;
+		var config = toggleConfig[key];
+		
+		if (config) {
+			var iconClass = config.flipIcon ? 'fa-sync fa-flip-horizontal' : 'fa-sync';
+			document.getElementById("changeDistribution").innerHTML = 
+				"<button class=\"changeDistribution\" data-type=\"" + type + "\" data-format=\"" + config.newFormat + "\" data-item-id=\"" + itemID + "\">" + 
+				config.label + " <span id=\"changeDistIcon\"><i class=\"fas " + iconClass + "\"></i></span></button>";
+		}
+		container.html(data);
+	});
+	return false;
+});
+// More Stats
+$('body').on("click", ".showMoreStats", function(){
+	var element = $(this);
+	var albumID = element.attr("data-album-id");
+	var container = $("#moreStats");
+	document.getElementById('moreStats').style.display = 'block';
+	document.getElementById('moreStatsLink').style.display = 'none';
+	$.post('/scripts/moreStatsAlbum.php', {albumID: albumID}, 
+	function(data){
+		container.html(data);
+	});
+	return false;
+});
+// Open Guidelines Popup
+$('body').on("click", ".guidePop", function(){
+	var element = $(this);
+	var type = element.attr("data-type");
+	var container = $(".overlay");
+	container.html('');
+	$.post('/scripts/guidelines.php', {type: type},
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Toggle Content
+$('body').on("click", ".toggleContent", function(){
+	var element = $(this);
+	var container = element.attr("data-content");
+	var current = element.attr("data-current");
+	$.post('/scripts/toggleContent.php', {container: container, current: current}, 
+	function(data){
+		if (current == 'albums') {
+			document.getElementById(container+"Link").innerHTML = "<a class=\"toggleContent\" href=\"#\" data-content=\"" + container + "\" data-current=\"singles\">Singles <i class=\"fas fa-sync fa-flip-horizontal\"></i></a>";
+			if (container == 'homeNewReleases') {
+				document.getElementById("homeNewReleasesAll").href = "/releases/this-week/singles/";
+			} else if (container = 'homePopular') {
+				document.getElementById("homePopularAll").href = "/discover/singles/";
+			}
+		} else if (current == 'singles') {
+			document.getElementById(container+"Link").innerHTML = "<a class=\"toggleContent\" href=\"#\" data-content=\"" + container + "\" data-current=\"albums\">Albums <i class=\"fas fa-sync\"></i></a>";
+			if (container == 'homeNewReleases') {
+				document.getElementById("homeNewReleasesAll").href = "/releases/this-week/";
+			} else if (container = 'homePopular') {
+				document.getElementById("homePopularAll").href = "/discover/";
+			}
+		}
+		document.getElementById(container).innerHTML = data;
+	});
+	return false;
+});
+// Show User Track Ratings
+$('body').on("click", ".showUserTrackRatings", function(){
+	var container = $(".overlay");
+	var albumID = this.getAttribute('data-album-id');
+	var userID = this.getAttribute('data-user-id');
+	container.html('');
+	$.post('/scripts/trackRatings/showUserTrackRatings.php', {albumID: albumID, userID: userID}, 
+	function(data){
+		container.html(data);
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Show Image
+$('body').on("click", ".showImage", function(){
+	var container = $(".overlay");	
+	var id = this.getAttribute('data-id');
+	var type = this.getAttribute('data-type');
+	$.post('/scripts/showImage.php', {id: id, type: type}, 
+	function(data){		
+		container.html(data);
+		document.getElementById('imageOverlay').style.maxWidth = '90%';
+		document.getElementById('imageOverlay').style.maxHeight = '90%';
+		document.getElementById('imageOverlay').style.width = 'fit-content';
+	});
+	$(".overlay").addClass("show");
+	return false;
+});
+// Change Image
+$('body').on("click", ".thumbnailSelect", function(){
+	var container = document.getElementById('curImage');
+	container.style.width  = container.offsetWidth  + 'px';
+  	container.style.height = container.offsetHeight + 'px';
+	var id = this.getAttribute('data-id');
+	var type = this.getAttribute('data-type');
+	var albumID = this.getAttribute('data-album-id');	
+	container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';	
+
+	$.post('/scripts/thumbnailSelect.php', {id: id, type: type, albumID: albumID}, 
+	function(data){		
+		document.querySelectorAll('.thumbnail').forEach(el => {
+			el.classList.remove('selected');
+		});
+		document.getElementById('img_' + id).classList.add('selected');
+		container.innerHTML = data.img;
+		document.getElementById('description').innerHTML = data.description;
+		container.style.width  = '';
+    	container.style.height = '';
+	});
+	
+	return false;
+});
+// Show Subgenres
+$('body').on("click", ".showSubGenres", function(){	
+    var element = $(this);
+    var container = $(".overlay");
+    var genreID = element.attr("data-genre-id");
+    var breadIDs = JSON.parse(element.attr("data-bread-ids") || "[]");
+
+    container.html('<div class="content"><div class="loading"><i class="fas fa-spinner fa-spin"></i></div></div>');
+    $.post('/scripts/showSubGenres.php', {genreID: genreID, breadIDs: JSON.stringify(breadIDs)}, 
+    function(data){
+        container.html(data);
+    });
+    container.addClass("show");
+    return false;
+});
+// Generic toggle dropdown (no AJAX)
+$("body").on("click", ".menuToggle", function(e) {
+    e.preventDefault();
+    e.stopPropagation(); 
+    var container = $(this).closest('.actionContainer').find('.dotDropMenu');
+
+    if (container.hasClass("active")) {
+        container.removeClass("active");
+        return;
+    }
+
+    $(".dotDropMenu.active").removeClass("active");
+    container.addClass("active");
+});
+// Close on outside click
+$(document).on("click", function(e) {
+    if (!$(e.target).closest('.actionContainer').length) {
+        $(".dotDropMenu.active").removeClass("active");
+    }
+});
+// Show Random Filters
+$("body").on("click", ".randomFilters", function(){
+	if (document.getElementById("header").classList.contains('navOpen')) {
+        changeClass();
+    }
+    var element = $(this);
+    var params = element.data('params') || {};
+    var container = $(".overlay");
+    container.html('');
+    $.get('/scripts/randomFilters.php', function(data){
+        container.html(data);
+        var filterMap = {
+			type: '#randomType',
+			yearFrom: '#randomYearFrom',
+			yearTo: '#randomYearTo',
+			criticScoreMin: '#randomCriticScoreMin',
+			criticScoreMax: '#randomCriticScoreMax',
+			userScoreMin: '#randomUserScoreMin',
+			userScoreMax: '#randomUserScoreMax',
+			criticReviewsMin: '#randomCriticReviewsMin',
+			criticReviewsMax: '#randomCriticReviewsMax',
+			userReviewsMin: '#randomUserReviewsMin',
+			userReviewsMax: '#randomUserReviewsMax'
+		};
+        $.each(filterMap, function(key, selector) {
+			if (params[key] !== undefined && params[key] !== null && params[key] !== '') {
+				$(selector).val(params[key]);
+			}
+		});
+        if (params.genre) {
+            $('#randomGenreID').val(params.genre);
+            $.get('/scripts/getGenreName.php', {id: params.genre}, function(name) {
+                $('#randomGenreSearch').val(name);
+            });
+        }
+		if (params.genreSecondary) {
+			$('#randomSecondaryGenreID').val(params.genreSecondary);
+			$.get('/scripts/getGenreName.php', {id: params.genreSecondary}, function(name) {
+				$('#randomSecondaryGenreSearch').val(name);
+			});
+		}
+        buildRandomUrl();
+    });
+    $(".overlay").addClass("show");
+    return false;
+});
+// Random Release Filters
+function buildRandomUrl() {
+    var params = new URLSearchParams();
+
+    var type = $('#randomType').val();
+    if (type) params.append('type', type);
+
+    var yearFrom = $('#randomYearFrom').val();
+    var yearTo = $('#randomYearTo').val();
+    if (yearFrom) params.append('yearFrom', yearFrom);
+    if (yearTo) params.append('yearTo', yearTo);
+
+    var genreID = $('#randomGenreID').val();
+    if (genreID) params.append('genre', genreID);
+
+    var genreSecondaryID = $('#randomSecondaryGenreID').val();
+    if (genreSecondaryID) params.append('genreSecondary', genreSecondaryID);
+
+    var criticScoreMin = $('#randomCriticScoreMin').val();
+    var criticScoreMax = $('#randomCriticScoreMax').val();
+    if (criticScoreMin !== '') params.append('criticScoreMin', criticScoreMin);
+    if (criticScoreMax !== '') params.append('criticScoreMax', criticScoreMax);
+
+    var userScoreMin = $('#randomUserScoreMin').val();
+    var userScoreMax = $('#randomUserScoreMax').val();
+    if (userScoreMin !== '') params.append('userScoreMin', userScoreMin);
+    if (userScoreMax !== '') params.append('userScoreMax', userScoreMax);
+
+    var criticReviewsMin = $('#randomCriticReviewsMin').val();
+    var criticReviewsMax = $('#randomCriticReviewsMax').val();
+    if (criticReviewsMin !== '') params.append('criticReviewsMin', criticReviewsMin);
+    if (criticReviewsMax !== '') params.append('criticReviewsMax', criticReviewsMax);
+
+    var userReviewsMin = $('#randomUserReviewsMin').val();
+    var userReviewsMax = $('#randomUserReviewsMax').val();
+    if (userReviewsMin !== '') params.append('userReviewsMin', userReviewsMin);
+    if (userReviewsMax !== '') params.append('userReviewsMax', userReviewsMax);
+
+    var url = '/random/';
+    if (params.toString()) url += '?' + params.toString();
+    $('.surpriseMe').attr('href', url);
+}
+
+$('.overlay').on('change input', '#randomType, #randomYearFrom, #randomYearTo, #randomCriticScoreMin, #randomCriticScoreMax, #randomUserScoreMin, #randomUserScoreMax, #randomCriticReviewsMin, #randomCriticReviewsMax, #randomUserReviewsMin, #randomUserReviewsMax', function() {
+    buildRandomUrl();
+});
+// Clear All
+$('.overlay').on('click', '.randomClearAll', function() {
+    $('#randomType').val('');
+    $('#randomYearFrom, #randomYearTo').val('');
+    $('#randomGenreSearch, #randomGenreID').val('');
+    $('#randomSecondaryGenreSearch, #randomSecondaryGenreID').val('');
+    $('#randomCriticScoreMin, #randomCriticScoreMax').val('');
+    $('#randomUserScoreMin, #randomUserScoreMax').val('');
+    $('#randomCriticReviewsMin, #randomCriticReviewsMax').val('');
+    $('#randomUserReviewsMin, #randomUserReviewsMax').val('');
+    buildRandomUrl();
+    return false;
+});
+// Random Genre Search
+var genreFields = {
+    '#randomGenreSearch': '#randomGenreID',
+    '#randomSecondaryGenreSearch': '#randomSecondaryGenreID'
+};
+$.each(genreFields, function(searchSelector, idSelector) {
+    $('.overlay').on('focus', searchSelector, function() {
+        $(this).autocomplete({
+            source: '/scripts/albumGenreAutocomplete.php',
+            minLength: 3,
+            select: function(event, ui) {
+                $(searchSelector).val(ui.item.value);
+                $(idSelector).val(ui.item.id);
+                buildRandomUrl();
+                return false;
+            },
+            open: function() {
+                $(".ui-autocomplete").css("z-index", 999999999999);
+            }
+        });
+    });
+    $('.overlay').on('input', searchSelector, function() {
+        if ($(this).val() === '') {
+            $(idSelector).val('');
+            buildRandomUrl();
+        }
+    });
+});
